@@ -2,7 +2,7 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Production Render URLs
-const SCANNER_API_BASE = 'https://phishguard-2-sgzd.onrender.com';
+const SCANNER_API_BASE = 'https://nexora-scanner.onrender.com';
 const EDU_API_BASE = 'https://phishguard-1-8y86.onrender.com';
 
 // Use SCANNER_API_BASE for scanning, EDU_API_BASE for everything else
