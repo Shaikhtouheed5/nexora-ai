@@ -1,0 +1,242 @@
+# =============================================================================
+# Nexora AI — Monorepo .gitignore
+# Stack: React + Vite | React Native + Expo | Python (FastAPI/Flask) | Supabase
+# =============================================================================
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# ENVIRONMENT & SECRETS  (NEVER commit these)
+# ──────────────────────────────────────────────────────────────────────────────
+.env
+.env.local
+.env.development
+.env.development.local
+.env.test
+.env.test.local
+.env.production
+.env.production.local
+.env.*.local
+.env.staging
+*.secret
+*.secrets
+supabase/.env
+supabase/config.json
+**/supabase/.env
+# Supabase service-role / anon keys
+supabase_key*
+service_role_key*
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# NODE / NPM / YARN  (Frontend + Mobile + Extension)
+# ──────────────────────────────────────────────────────────────────────────────
+node_modules/
+**/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.npm
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+package-lock.json.bak
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# BUILD OUTPUTS
+# ──────────────────────────────────────────────────────────────────────────────
+# Vite / Web
+dist/
+dist-ssr/
+build/
+out/
+.output/
+.next/
+.nuxt/
+.cache/
+
+# React Native / Expo
+.expo/
+.expo-shared/
+NexoraAI_Frontend/.expo/
+NexoraAI_Frontend/android/
+NexoraAI_Frontend/ios/
+**/android/app/build/
+**/android/.gradle/
+**/android/local.properties
+**/ios/build/
+**/ios/Pods/
+**/ios/*.xcworkspace/xcuserdata/
+**/ios/*.xcodeproj/xcuserdata/
+**/ios/build
+*.orig.*
+web-build/
+
+# Chrome Extension
+nexora-extension/dist/
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# PYTHON  (Backend — NexoraAI/)
+# ──────────────────────────────────────────────────────────────────────────────
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+.env/
+**/venv/
+**/.venv/
+Pipfile.lock
+
+# Distribution / packaging
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+parts/
+var/
+sdist/
+develop-eggs/
+.installed.cfg
+NexoraAI/lib/
+NexoraAI/lib64/
+*.spec
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.cover
+nosetests.xml
+test-results/
+
+# MyPy / type checking
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Jupyter Notebooks
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# LOGS
+# ──────────────────────────────────────────────────────────────────────────────
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log.*
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# OPERATING SYSTEM
+# ──────────────────────────────────────────────────────────────────────────────
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+.AppleDouble
+.LSOverride
+Icon?
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# EDITORS & IDEs
+# ──────────────────────────────────────────────────────────────────────────────
+# VS Code (keep extensions/launch for team sharing, ignore personal settings)
+.vscode/settings.json
+.vscode/*.code-workspace
+.vscode/tasks.json
+.vscode/launch.json
+
+# JetBrains (IntelliJ / PyCharm / WebStorm)
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim / Neovim
+*.swp
+*.swo
+*~
+
+# Emacs
+\#*\#
+.\#*
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# DOCKER
+# ──────────────────────────────────────────────────────────────────────────────
+# Keep Dockerfiles; ignore local override files
+docker-compose.override.yml
+.dockerignore.local
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# MISCELLANEOUS
+# ──────────────────────────────────────────────────────────────────────────────
+# EAS (Expo Application Services) build credentials
+*.p8
+*.p12
+*.mobileprovision
+google-services.json
+GoogleService-Info.plist
+
+# Temporary / scratch files
+*.tmp
+*.temp
+*.bak
+*.swp
+.tmp/
+tmp/
+
+# Local testing / debugging scripts
+debug_*.py
+test_local_*.py
+scratch.*

@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <title>Nexora AI</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo-wrapper">
+        <div class="logo-glow"></div>
+        <img src="icons/icon128.png" alt="Logo" class="logo">
+      </div>
+      <h1>Nexora AI</h1>
+    </div>
+
+    <div id="login-section" class="section-card">
+      <div class="section-title">Identity Verification</div>
+      <p style="margin: 0; color: var(--text-muted); font-size: 14px;">Please sign in to access Nexora protocols.
+      </p>
+      <div style="display: flex; flex-direction: column; gap: 12px; width: 100%;">
+        <input type="email" id="email" placeholder="Email Address">
+        <input type="password" id="password" placeholder="Account Password">
+      </div>
+      <button id="login-btn">Secure Login</button>
+      <div id="auth-error" class="error" style="display: none;"></div>
+    </div>
+
+    <div id="scan-section" class="section-card" style="display: none;">
+      <div class="section-title">Content Analysis</div>
+      <textarea id="scan-input" placeholder="Paste suspicious email or message content here..."></textarea>
+      <button id="scan-btn">Execute AI Scan</button>
+
+      <div id="result-container" style="display: none;">
+        <div id="classification-badge" class="badge">Checking...</div>
+        <div id="risk-info">
+          <p id="confidence-text"></p>
+          <div id="risk-factors"></div>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 12px; width: 100%; margin-top: 8px;">
+        <button id="logout-btn" class="secondary" style="flex: 1;">Deauthenticate</button>
+      </div>
+    </div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+
+</html>

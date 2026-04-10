@@ -1,0 +1,18 @@
+# Local development files
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+
+# Mobile project files (if they leak in)
+android/
+ios/
+node_modules/
+
+# OS files
+.DS_Store
+
+# Git
+.git
+.gitignore

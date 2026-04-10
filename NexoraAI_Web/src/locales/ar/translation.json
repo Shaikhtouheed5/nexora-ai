@@ -1,0 +1,18 @@
+{
+    "welcome": "مرحباً بكم في Nexora AI",
+    "dashboard": "لوحة القيادة",
+    "logout": "تسجيل الخروج",
+    "scanning": "جاري الفحص...",
+    "risk_factors": "عوامل الخطر",
+    "confidence": "الثقة",
+    "leaderboard": "لوحة المتصدرين",
+    "daily_quiz": "التحدي اليومي",
+    "lessons": "الدروس",
+    "continue_journey": "استمر في رحلتك في الأمن السيبراني واكسب النقاط.",
+    "daily_challenge_title": "تحدي الأمان اليومي",
+    "daily_challenge_desc": "اختبر معلوماتك في اختبار اليوم المتخصص واكسب نقاطاً هائلة.",
+    "start_now": "ابدأ الآن",
+    "loading_protocols": "جاري تحميل البروتوكولات...",
+    "completed": "مكتمل",
+    "day": "يوم"
+}

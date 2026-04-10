@@ -1,0 +1,18 @@
+{
+    "welcome": "Bem-vindo ao Nexora AI",
+    "dashboard": "Painel de controle",
+    "logout": "Sair",
+    "scanning": "Digitalizando...",
+    "risk_factors": "Fatores de risco",
+    "confidence": "Confiança",
+    "leaderboard": "Classificação",
+    "daily_quiz": "DESAFIO DIÁRIO",
+    "lessons": "Lições",
+    "continue_journey": "Continue sua jornada de segurança cibernética e ganhe pontos.",
+    "daily_challenge_title": "Desafio de Segurança Diário",
+    "daily_challenge_desc": "Teste seus conhecimentos com o quiz especializado de hoje e ganhe muitos pontos.",
+    "start_now": "Começar agora",
+    "loading_protocols": "Carregando protocolos...",
+    "completed": "CONCLUÍDO",
+    "day": "Dia"
+}

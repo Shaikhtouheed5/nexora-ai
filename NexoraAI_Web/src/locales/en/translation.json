@@ -1,0 +1,18 @@
+{
+    "welcome": "Welcome to Nexora AI",
+    "dashboard": "Dashboard",
+    "logout": "Logout",
+    "scanning": "Scanning...",
+    "risk_factors": "Risk Factors",
+    "confidence": "Confidence",
+    "leaderboard": "Leaderboard",
+    "daily_quiz": "DAILY CHALLENGE",
+    "lessons": "Lessons",
+    "continue_journey": "Continue your cybersecurity journey and earn points.",
+    "daily_challenge_title": "Daily Security Challenge",
+    "daily_challenge_desc": "Test your knowledge with today's specialized quiz and earn massive points.",
+    "start_now": "Start Now",
+    "loading_protocols": "Loading Protocols...",
+    "completed": "COMPLETED",
+    "day": "Day"
+}

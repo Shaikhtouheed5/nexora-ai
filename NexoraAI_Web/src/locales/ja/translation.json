@@ -1,0 +1,18 @@
+{
+    "welcome": "Nexora AIへようこそ",
+    "dashboard": "ダッシュボード",
+    "logout": "ログアウト",
+    "scanning": "スキャン中...",
+    "risk_factors": "リスク要因",
+    "confidence": "信頼度",
+    "leaderboard": "リーダーボード",
+    "daily_quiz": "デイリーチャレンジ",
+    "lessons": "レッスン",
+    "continue_journey": "サイバーセキュリティの旅を続けてポイントを獲得しましょう。",
+    "daily_challenge_title": "デイリーセキュリティチャレンジ",
+    "daily_challenge_desc": "今日の専門クイズで知識をテストし、大量のポイントを獲得しましょう。",
+    "start_now": "今すぐ開始",
+    "loading_protocols": "プロトコルを読み込み中...",
+    "completed": "完了",
+    "day": "日"
+}

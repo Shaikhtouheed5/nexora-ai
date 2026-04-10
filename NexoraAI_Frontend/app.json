@@ -1,0 +1,69 @@
+{
+  "expo": {
+    "name": "NexoraAI",
+    "slug": "nexoraai",
+    "version": "1.0.0",
+    "scheme": "nexora",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "platforms": [
+      "ios",
+      "android"
+    ],
+    "android": {
+      "package": "com.nexoraai.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0a0f1e"
+      },
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "nexora",
+              "host": "auth",
+              "pathPrefix": "/callback"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
+    },
+    "ios": {
+      "bundleIdentifier": "com.nexoraai.app"
+    },
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "backgroundColor": "#0a0f1e"
+    },
+    "userInterfaceStyle": "dark",
+    "extra": {
+      "eas": {
+        "projectId": "2f622b1f-b550-429c-a1fe-8ce37880ba87"
+      }
+    },
+    "plugins": [
+      "expo-web-browser",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "extraPermissions": [
+              "android.permission.READ_SMS",
+              "android.permission.RECEIVE_SMS"
+            ]
+          }
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow NexoraAI to scan images for phishing threats.",
+          "cameraPermission": "Allow NexoraAI to capture images to scan for threats."
+        }
+      ]
+    ]
+  }
+}

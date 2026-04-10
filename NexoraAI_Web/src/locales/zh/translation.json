@@ -1,0 +1,18 @@
+{
+    "welcome": "欢迎使用 Nexora AI",
+    "dashboard": "仪表板",
+    "logout": "退出登录",
+    "scanning": "正在扫描...",
+    "risk_factors": "风险因素",
+    "confidence": "置信度",
+    "leaderboard": "排行榜",
+    "daily_quiz": "每日挑战",
+    "lessons": "课程",
+    "continue_journey": "继续您的网络安全之旅并赚取积分。",
+    "daily_challenge_title": "每日安全挑战",
+    "daily_challenge_desc": "通过今天的专业测验测试您的知识并赚取大量积分。",
+    "start_now": "现在开始",
+    "loading_protocols": "正在加载协议...",
+    "completed": "已完成",
+    "day": "天"
+}
