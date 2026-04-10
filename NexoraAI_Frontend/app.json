@@ -27,8 +27,19 @@
               "pathPrefix": "/callback"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
+      ],
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.READ_SMS",
+        "android.permission.RECEIVE_SMS",
+        "android.permission.CAMERA",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_EXTERNAL_STORAGE"
       ]
     },
     "ios": {
@@ -39,11 +50,6 @@
       "backgroundColor": "#0a0f1e"
     },
     "userInterfaceStyle": "dark",
-    "extra": {
-      "eas": {
-        "projectId": "2f622b1f-b550-429c-a1fe-8ce37880ba87"
-      }
-    },
     "plugins": [
       "expo-web-browser",
       [
@@ -60,10 +66,16 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow NexoraAI to scan images for phishing threats.",
-          "cameraPermission": "Allow NexoraAI to capture images to scan for threats."
+          "cameraPermission": "NexoraAI needs camera access to scan suspicious messages.",
+          "photosPermission": "NexoraAI needs photo access to scan screenshots for phishing threats."
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "33e74d1b-bf3b-409c-805a-122fcdc81e52"
+      }
+    },
+    "owner": "toxicc05"
   }
 }

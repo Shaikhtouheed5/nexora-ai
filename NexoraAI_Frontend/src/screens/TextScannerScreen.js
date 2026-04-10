@@ -97,10 +97,14 @@ export default function TextScannerScreen({ user }) {
     setExtractedText('');
 
     try {
-      const SCANNER_BASE = 'https://phishguard-2-sgzd.onrender.com';
+      const SCANNER_BASE = 'https://nexora-scanner.onrender.com';
+      const token = await AsyncStorage.getItem('jwt_token');
       const res = await fetch(`${SCANNER_BASE}/scan/image`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
         body: JSON.stringify({ image: base64 }),
       });
       const raw = await res.text();

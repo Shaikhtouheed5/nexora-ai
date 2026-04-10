@@ -13,3 +13,5 @@ scikit-learn==1.4.2
 joblib==1.4.0
 numpy==1.26.4
 python-multipart==0.0.9
+pytesseract==0.3.13
+Pillow>=10.0.0

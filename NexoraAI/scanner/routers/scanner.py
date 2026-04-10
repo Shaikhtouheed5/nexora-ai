@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from datetime import datetime, timezone
 from typing import List
+from pydantic import BaseModel
 import uuid
 
 from core.dependencies import get_current_user
@@ -167,6 +168,131 @@ async def mark_safe(
     except Exception as exc:
         logger.error(f"mark_safe failed: {exc}")
         raise HTTPException(status_code=500, detail="Failed to mark as safe.")
+
+
+# ── /scan/text ────────────────────────────────────────────────────────────────
+
+class TextScanRequest(BaseModel):
+    text: str
+
+class TextScanResponse(BaseModel):
+    riskLevel: str
+    score: int
+    reasons: List[str]
+
+@router.post("/scan/text", response_model=TextScanResponse)
+async def scan_text_endpoint(
+    body: TextScanRequest,
+    user: dict = Depends(get_current_user),
+):
+    """Scan raw text and return mobile-friendly riskLevel/score/reasons."""
+    try:
+        result = await scan_text(body.text, "sms")
+    except Exception as exc:
+        logger.error(f"/scan/text engine error: {exc}")
+        raise HTTPException(status_code=500, detail="Scan failed. Please try again.")
+
+    classification_map = {
+        "safe": "SAFE",
+        "suspicious": "SUSPICIOUS",
+        "malicious": "MALICIOUS",
+    }
+    risk_level = classification_map.get(result.classification.lower(), "SUSPICIOUS")
+    score = int(round(result.risk_score * 100))
+    reasons = result.flags if result.flags else ([result.explanation] if result.explanation else [])
+
+    return TextScanResponse(riskLevel=risk_level, score=score, reasons=reasons)
+
+
+# ── /scan/image ───────────────────────────────────────────────────────────────
+
+import base64 as _b64
+import os
+import httpx as _httpx
+
+class ImageScanRequest(BaseModel):
+    image: str  # base64 encoded
+
+@router.post("/scan/image")
+async def scan_image_endpoint(
+    body: ImageScanRequest,
+    user: dict = Depends(get_current_user),
+):
+    """OCR an image (pytesseract → Gemini fallback) then scan the extracted text."""
+    extracted_text = ""
+
+    # Step 1: Try pytesseract
+    try:
+        import pytesseract
+        from PIL import Image
+        import io
+        img_bytes = _b64.b64decode(body.image)
+        img = Image.open(io.BytesIO(img_bytes))
+        extracted_text = pytesseract.image_to_string(img).strip()
+    except ImportError:
+        # Step 2: Gemini Vision fallback
+        try:
+            gemini_key = os.environ.get("GEMINI_API_KEY", "")
+            if not gemini_key:
+                raise ValueError("GEMINI_API_KEY not set")
+            async with _httpx.AsyncClient(timeout=30) as client:
+                resp = await client.post(
+                    f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_key}",
+                    json={
+                        "contents": [{
+                            "parts": [
+                                {"text": "Extract ALL text visible in this image. Return only the raw text, nothing else."},
+                                {"inline_data": {"mime_type": "image/jpeg", "data": body.image}},
+                            ]
+                        }]
+                    },
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                extracted_text = (
+                    data.get("candidates", [{}])[0]
+                    .get("content", {})
+                    .get("parts", [{}])[0]
+                    .get("text", "")
+                    .strip()
+                )
+        except Exception as exc:
+            logger.warning(f"Gemini OCR failed: {exc}")
+            extracted_text = ""
+
+    # Step 3: No text found
+    if not extracted_text:
+        return {
+            "status": "ok",
+            "data": {
+                "extracted_text": "",
+                "riskLevel": "SAFE",
+                "score": 0,
+                "reasons": ["No text found in image"],
+            },
+        }
+
+    # Step 4: Scan extracted text
+    try:
+        result = await scan_text(extracted_text, "sms")
+    except Exception as exc:
+        logger.error(f"/scan/image scan_text error: {exc}")
+        raise HTTPException(status_code=500, detail="Scan failed after OCR.")
+
+    classification_map = {"safe": "SAFE", "suspicious": "SUSPICIOUS", "malicious": "MALICIOUS"}
+    risk_level = classification_map.get(result.classification.lower(), "SUSPICIOUS")
+    score = int(round(result.risk_score * 100))
+    reasons = result.flags if result.flags else ([result.explanation] if result.explanation else [])
+
+    return {
+        "status": "ok",
+        "data": {
+            "extracted_text": extracted_text,
+            "riskLevel": risk_level,
+            "score": score,
+            "reasons": reasons,
+        },
+    }
 
 
 # ── Internal helper ───────────────────────────────────────────────────────────
