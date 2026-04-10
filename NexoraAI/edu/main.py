@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
-from routers import auth, edu, content_gen, telegram
+from routers import auth, edu, content_gen
 
 app = FastAPI(title="PhishGuard Edu API")
 
@@ -17,7 +17,6 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(edu.router, tags=["edu"])
 app.include_router(content_gen.router, prefix="/api/edu", tags=["content-gen"])
-app.include_router(telegram.router, tags=["telegram"])
 
 @app.get("/")
 async def root():
