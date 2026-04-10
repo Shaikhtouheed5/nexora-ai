@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
-import { api } from '../api';
+import { fetchQuiz } from '../lib/lessonService';
 import { awardXP, awardBadge, XP_RULES } from '../lib/gamificationService';
 import { supabase } from '../lib/supabase';
 import { CheckCircle, XCircle, ChevronRight, Trophy, RotateCcw, Home } from 'lucide-react';
@@ -22,8 +22,8 @@ export default function DailyQuiz({ user, profile, onLogout, refreshProfile }) {
 
   useEffect(() => {
     setLoading(true);
-    api.getDailyQuiz('en')
-      .then(data => setQuiz(data))
+    fetchQuiz(dayId)
+      .then(data => setQuiz({ questions: data }))
       .catch(() => setQuiz(null))
       .finally(() => setLoading(false));
   }, [dayId]);
