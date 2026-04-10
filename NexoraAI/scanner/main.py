@@ -1,11 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
-from routers import auth, scanner, edu
+from routers import scanner
 
 app = FastAPI()
 
-# --- Middleware ---
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -13,10 +12,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- Routers ---
-app.include_router(auth.router, prefix="/auth")
 app.include_router(scanner.router, prefix="/scanner")
-app.include_router(edu.router, prefix="/edu")
 
 @app.get("/")
 async def root():
