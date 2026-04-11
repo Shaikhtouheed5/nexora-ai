@@ -33,7 +33,7 @@ export default function Settings({ user, profile, onLogout, refreshProfile }) {
     setDeleting(true);
     try {
       await supabase.from('users').delete().eq('uid', user.id);
-      await supabase.auth.admin?.deleteUser(user.id).catch(() => {});
+      try { await supabase.auth.admin?.deleteUser(user.id); } catch (_) {}
       await supabase.auth.signOut();
     } catch (err) { console.error(err); }
     setDeleting(false);

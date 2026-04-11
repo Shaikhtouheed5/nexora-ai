@@ -100,14 +100,14 @@ class ApiClient {
   }
 
   // ── History (backward-compat) ────────────────────────────────────────────
-  getHistory() {
-    // Returns scan history from Supabase directly — not proxied via edu API
-    return supabase
+  async getHistory() {
+    const { data, error } = await supabase
       .from('scan_history')
       .select('*')
       .order('scanned_at', { ascending: false })
-      .limit(50)
-      .then(({ data }) => data || []);
+      .limit(50);
+    if (error) throw error;
+    return data || [];
   }
 
   // ── XP & Lesson Completion (Supabase direct) ────────────────────────────
