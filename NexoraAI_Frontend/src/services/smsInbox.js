@@ -1,18 +1,16 @@
 /**
  * Nexora SMS Inbox Provider
  *
- * Real SMS inbox reading requires a native module not available in
- * Expo managed workflow. This module returns realistic demo data so
- * the Monitor screen works without crashing.
- *
- * To enable real SMS reading, eject to bare workflow and add a
- * custom native module with READ_SMS permission.
+ * Uses the native SmsModule (SmsModule.java) when available in a bare-workflow
+ * build (EAS Build), falling back to demo data in Expo Go / managed builds.
  */
 
-import { Platform } from 'react-native';
+import { Platform, NativeModules } from 'react-native';
 
-// Exported for backwards compatibility — always null in managed workflow
+// Exported for backwards compatibility
 export const SmsAndroid = null;
+
+const { SmsModule: NativeSmsModule } = NativeModules;
 
 const DEMO_SMS = [
     {
@@ -60,10 +58,30 @@ const DEMO_SMS = [
 ];
 
 /**
- * Returns SMS messages. Always returns demo data in managed Expo builds.
+ * Returns SMS messages from the native inbox (EAS build) or demo data (Expo Go).
  * Returns { messages: [...], isDemo: boolean }
  */
 export async function getAllSMS() {
+    // Use real native module when available (EAS bare build)
+    if (Platform.OS === 'android' && NativeSmsModule) {
+        try {
+            const rawMessages = await NativeSmsModule.getSmsInbox();
+            if (rawMessages && rawMessages.length > 0) {
+                const messages = rawMessages.map((sms, index) => ({
+                    id: `native_${index}_${sms.date}`,
+                    sender: sms.sender || 'Unknown',
+                    body: sms.body || '',
+                    date: sms.date
+                        ? new Date(parseInt(sms.date, 10)).toISOString()
+                        : new Date().toISOString(),
+                }));
+                return { messages, isDemo: false };
+            }
+        } catch (err) {
+            console.warn('[smsInbox] Native getSmsInbox failed, falling back to demo:', err);
+        }
+    }
+    // Fallback: demo data for Expo Go / iOS / permission denied
     return { messages: DEMO_SMS, isDemo: true };
 }
 

@@ -1,6 +1,8 @@
-import { Platform } from 'react-native';
+import { Platform, NativeModules, NativeEventEmitter } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { getAllSMS } from './smsInbox';
+
+const { SmsModule: NativeSmsModule } = NativeModules;
 
 class SMSService {
     constructor() {
@@ -8,14 +10,16 @@ class SMSService {
         this.lastMessageId = '';
         this.onNewMessage = null; // callback: (text) => void
         this.monitorInterval = null;
+        this.nativeSubscription = null;
         this.isRunning = false;
     }
 
     /**
      * Start monitoring for new messages.
-     * Strategy: 
-     * 1. Clipboard polling (Fallback for Expo Go)
-     * 2. Inbox "Top Message" polling (Lightweight check for new IDs)
+     * Strategy priority:
+     * 1. Native BroadcastReceiver (NativeSmsModule — EAS bare build only)
+     * 2. Clipboard polling (Expo Go fallback)
+     * 3. Inbox top-message polling (lightweight change detection)
      */
     start(onNewMessage) {
         if (this.isRunning) return;
@@ -25,12 +29,32 @@ class SMSService {
         // Initialize last message ID to avoid scanning old history on start
         this.initLastMessage();
 
+        // Prefer native BroadcastReceiver over polling when available
+        if (Platform.OS === 'android' && NativeSmsModule) {
+            try {
+                const emitter = new NativeEventEmitter(NativeSmsModule);
+                this.nativeSubscription = emitter.addListener('onSmsReceived', ({ sender, body }) => {
+                    console.log('📬 New SMS via native BroadcastReceiver from:', sender);
+                    if (this.onNewMessage && body) {
+                        this.onNewMessage(body);
+                    }
+                });
+                console.log('📱 SMS Service started (Native BroadcastReceiver)');
+            } catch (e) {
+                console.warn('[SMSService] Native listener failed, falling back to polling:', e);
+                this._startPolling();
+            }
+        } else {
+            this._startPolling();
+        }
+    }
+
+    _startPolling() {
         this.monitorInterval = setInterval(async () => {
             await this.checkClipboard();
             await this.checkInbox();
-        }, 5000); // 5 second check is balance between speed and battery
-
-        console.log('📱 SMS Service started (Hybrid Monitoring)');
+        }, 5000); // 5 second check — balance between speed and battery
+        console.log('📱 SMS Service started (Hybrid Polling fallback)');
     }
 
     async initLastMessage() {
@@ -99,14 +123,21 @@ class SMSService {
     }
 
     /**
-     * Stop monitoring.
+     * Stop monitoring and clean up all subscriptions.
      */
     stop() {
         this.isRunning = false;
+
+        if (this.nativeSubscription) {
+            this.nativeSubscription.remove();
+            this.nativeSubscription = null;
+        }
+
         if (this.monitorInterval) {
             clearInterval(this.monitorInterval);
             this.monitorInterval = null;
         }
+
         console.log('📱 SMS Service stopped');
     }
 }
