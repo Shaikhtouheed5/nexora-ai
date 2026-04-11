@@ -98,7 +98,11 @@ export default function TextScannerScreen({ user }) {
 
     try {
       const SCANNER_BASE = 'https://nexora-scanner.onrender.com';
-      const token = await AsyncStorage.getItem('jwt_token');
+      let token = null;
+      try {
+        const raw = await AsyncStorage.getItem('sb-oyvyeutjidgafipmgixz-auth-token');
+        if (raw) token = JSON.parse(raw).access_token;
+      } catch {}
       const res = await fetch(`${SCANNER_BASE}/scan/image`, {
         method: 'POST',
         headers: {
@@ -113,7 +117,8 @@ export default function TextScannerScreen({ user }) {
 
       if (data.status === 'error') throw new Error(data.error || 'Image scan failed');
 
-      const scanResult = data.data;
+      const scanResult = data?.data || data;
+      if (!scanResult) throw new Error('Invalid response from server');
       if (scanResult.extracted_text) {
         setExtractedText(scanResult.extracted_text);
         await saveToHistory(scanResult.extracted_text, scanResult);

@@ -13,9 +13,19 @@ const SCAN_CACHE_KEY = 'phishguard_scan_cache';
 // Helper to get token
 const getToken = async () => {
     if (Platform.OS === 'web') {
-        return localStorage.getItem('jwt_token');
+        // Web uses Supabase localStorage key
+        try {
+            const raw = localStorage.getItem('sb-oyvyeutjidgafipmgixz-auth-token');
+            if (raw) return JSON.parse(raw).access_token;
+        } catch {}
+        return localStorage.getItem('jwt_token'); // fallback
     }
-    return await AsyncStorage.getItem('jwt_token');
+    // Mobile uses Supabase AsyncStorage key
+    try {
+        const raw = await AsyncStorage.getItem('sb-oyvyeutjidgafipmgixz-auth-token');
+        if (raw) return JSON.parse(raw).access_token;
+    } catch {}
+    return await AsyncStorage.getItem('jwt_token'); // fallback
 };
 
 const setToken = async (token) => {
