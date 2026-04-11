@@ -22,6 +22,7 @@ import SettingsScreen    from './src/screens/SettingsScreen';
 import TextScannerScreen from './src/screens/TextScannerScreen';
 import HelpCenterScreen  from './src/screens/HelpCenterScreen';
 import SecurityScreen    from './src/screens/SecurityScreen';
+import MonitorScreen     from './src/screens/MonitorScreen';
 
 // ─── Components ─────────────────────────────────────────────────────────────
 import Sidebar from './src/components/Sidebar';
@@ -175,6 +176,8 @@ function AppContent() {
         return <SettingsScreen {...commonProps} />;
       case 'security':
         return <SecurityScreen {...commonProps} />;
+      case 'monitor':
+        return <MonitorScreen />;
       case 'help':
         return <HelpCenterScreen user={user} />;
       default:

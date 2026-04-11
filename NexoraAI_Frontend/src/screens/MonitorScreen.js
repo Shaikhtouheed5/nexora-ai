@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, Alert, PermissionsAndroid, Platform, RefreshControl,
+  ActivityIndicator, PermissionsAndroid, Platform, RefreshControl,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { COLORS, SHADOWS } from '../constants/theme';
+import { COLORS } from '../constants/theme';
 import { api } from '../lib/api';
+import { getAllSMS } from '../services/smsInbox';
 
 const MONITOR_RESULTS_KEY = '@nexora_monitor_results';
 const AUTO_REFRESH_INTERVAL = 60000; // 60 seconds
@@ -34,35 +35,18 @@ const requestSmsPermission = async () => {
   }
 };
 
-const readSmsMessages = () =>
-  new Promise((resolve) => {
-    try {
-      const SmsAndroid = require('react-native-get-sms-android').default;
-      const filter = JSON.stringify({ box: 'inbox', maxCount: 50 });
-      SmsAndroid.list(
-        filter,
-        () => resolve([]),
-        (_count, raw) => {
-          try { resolve(JSON.parse(raw)); } catch { resolve([]); }
-        }
-      );
-    } catch {
-      resolve([]);
-    }
-  });
-
 export default function MonitorScreen() {
-  const [results, setResults]       = useState([]);
-  const [stats, setStats]           = useState({ total: 0, threats: 0, suspicious: 0, safe: 0 });
-  const [loading, setLoading]       = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [permDenied, setPermDenied] = useState(false);
+  const [results, setResults]         = useState([]);
+  const [stats, setStats]             = useState({ total: 0, threats: 0, suspicious: 0, safe: 0 });
+  const [loading, setLoading]         = useState(true);
+  const [refreshing, setRefreshing]   = useState(false);
+  const [permDenied, setPermDenied]   = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
   const intervalRef = useRef(null);
 
   useEffect(() => {
     const init = async () => {
-      // Load cached results while we work
+      // Load cached results while scanning
       try {
         const cached = await AsyncStorage.getItem(MONITOR_RESULTS_KEY);
         if (cached) {
@@ -81,8 +65,6 @@ export default function MonitorScreen() {
       }
 
       await scanMessages();
-
-      // Auto-refresh every 60 seconds
       intervalRef.current = setInterval(scanMessages, AUTO_REFRESH_INTERVAL);
     };
 
@@ -92,28 +74,29 @@ export default function MonitorScreen() {
 
   const scanMessages = async () => {
     try {
-      const messages = await readSmsMessages();
+      // getAllSMS handles native module availability and falls back to demo data
+      const { messages } = await getAllSMS();
       if (!messages.length) {
         setLoading(false);
+        setRefreshing(false);
         return;
       }
 
-      // Scan each message individually (up to 50)
       const scanned = [];
       for (const msg of messages.slice(0, 50)) {
         try {
           const result = await api.scanText(msg.body || '');
           scanned.push({
-            id: msg._id || msg.date || Math.random().toString(),
+            id: msg.id || String(Date.now() + Math.random()),
             preview: (msg.body || '').slice(0, 100),
-            sender: msg.address || 'Unknown',
-            date: msg.date ? new Date(parseInt(msg.date)).toISOString() : new Date().toISOString(),
+            sender: msg.sender || 'Unknown',
+            date: msg.date || new Date().toISOString(),
             riskLevel: result.riskLevel || 'SAFE',
             score: result.score ?? 0,
             reasons: result.reasons || [],
           });
         } catch {
-          // skip individual failures silently
+          // skip individual scan failures silently
         }
       }
 
@@ -159,8 +142,7 @@ export default function MonitorScreen() {
         <Text style={{ fontSize: 48, marginBottom: 16 }}>🔒</Text>
         <Text style={styles.permTitle}>SMS Permission Required</Text>
         <Text style={styles.permSubtitle}>
-          NexoraAI needs SMS access to monitor your inbox for phishing threats.
-          Please enable it in device Settings → Apps → NexoraAI → Permissions.
+          Enable it in device Settings → Apps → NexoraAI → Permissions → SMS.
         </Text>
       </View>
     );
@@ -174,34 +156,26 @@ export default function MonitorScreen() {
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
       }
     >
-      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>SMS Monitor</Text>
         <Text style={styles.subtitle}>
-          {lastUpdated
-            ? `Updated ${lastUpdated.toLocaleTimeString()}`
-            : 'Pull to refresh'}
+          {lastUpdated ? `Updated ${lastUpdated.toLocaleTimeString()}` : 'Pull to refresh'}
         </Text>
       </View>
 
       {/* Stats */}
       <View style={styles.statsRow}>
-        <View style={styles.statCard}>
-          <Text style={[styles.statValue, { color: COLORS.primary }]}>{stats.total}</Text>
-          <Text style={styles.statLabel}>INSPECTED</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={[styles.statValue, { color: '#FF3D57' }]}>{stats.threats}</Text>
-          <Text style={styles.statLabel}>BREACHES</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={[styles.statValue, { color: '#FFB300' }]}>{stats.suspicious}</Text>
-          <Text style={styles.statLabel}>SUSPICIOUS</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={[styles.statValue, { color: '#00E676' }]}>{stats.safe}</Text>
-          <Text style={styles.statLabel}>SAFE</Text>
-        </View>
+        {[
+          { value: stats.total,      color: COLORS.primary, label: 'INSPECTED' },
+          { value: stats.threats,    color: '#FF3D57',       label: 'BREACHES' },
+          { value: stats.suspicious, color: '#FFB300',       label: 'SUSPICIOUS' },
+          { value: stats.safe,       color: '#00E676',       label: 'SAFE' },
+        ].map((s) => (
+          <View key={s.label} style={styles.statCard}>
+            <Text style={[styles.statValue, { color: s.color }]}>{s.value}</Text>
+            <Text style={styles.statLabel}>{s.label}</Text>
+          </View>
+        ))}
       </View>
 
       {/* Live Feedback */}
