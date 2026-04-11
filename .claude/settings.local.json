@@ -14,7 +14,8 @@
       "Bash([ -f \"$PROJ/$f\" ])",
       "Bash([ -e \"$PROJ/$p\" ])",
       "Bash(pip cache:*)",
-      "Bash(dir)"
+      "Bash(dir)",
+      "Bash(npm list:*)"
     ]
   }
 }
