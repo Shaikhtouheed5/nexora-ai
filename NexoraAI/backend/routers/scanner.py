@@ -1,19 +1,12 @@
 import json
-import base64
-import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel
 from core.dependencies import get_current_user
-from core.config import settings
 from services.supabase_client import supabase
 from services.redis_client import get_cache, set_cache
 from utils.cache_helpers import scan_key, SCAN_TTL
 from utils.logger import logger
 from schemas.scanner import ScanRequest, ScanBatchRequest, MarkSafeRequest
 
-
-class ImageScanRequest(BaseModel):
-    image: str  # base64-encoded image
 
 router = APIRouter()
 
@@ -46,63 +39,6 @@ async def scan(request: Request, body: ScanRequest, user: dict = Depends(get_cur
         pass
 
     set_cache(scan_key(content), json.dumps(result), ex=SCAN_TTL)
-    return result
-
-
-@router.post("/image")
-async def scan_image(request: Request, body: ImageScanRequest, user: dict = Depends(get_current_user)):
-    """
-    Receive base64 image from app → call Google Cloud Vision → extract text → scan with engine.
-    API key stays on backend — never exposed to client.
-    """
-    # Validate base64
-    if not body.image or len(body.image) < 100:
-        raise HTTPException(status_code=400, detail="Invalid or empty image data")
-
-    # Step 1: OCR via Google Cloud Vision (key never leaves server)
-    extracted_text = ""
-    try:
-        vision_url = (
-            f"https://vision.googleapis.com/v1/images:annotate"
-            f"?key={settings.GOOGLE_VISION_API_KEY}"
-        )
-        payload = {
-            "requests": [{
-                "image": {"content": body.image},
-                "features": [{"type": "TEXT_DETECTION"}],
-            }]
-        }
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            resp = await client.post(vision_url, json=payload)
-            if not resp.is_success:
-                raw = resp.text
-                logger.error(f"Google Vision API error {resp.status_code}: {raw[:500]}")
-                raise HTTPException(status_code=502, detail=f"Vision API error: {resp.status_code}")
-            data = resp.json()
-            extracted_text = data.get("responses", [{}])[0].get("fullTextAnnotation", {}).get("text", "")
-            logger.info(f"Vision OCR extracted {len(extracted_text)} chars")
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.warning(f"Google Vision OCR failed: {e}")
-        raise HTTPException(status_code=502, detail=f"OCR service unavailable: {str(e)}")
-
-    if not extracted_text.strip():
-        return {
-            "verdict": "unverified",
-            "confidence": 0.0,
-            "threat_type": None,
-            "explanation": "No readable text found in image.",
-            "flags": [],
-            "extracted_text": "",
-            "safe_browsing_result": None,
-            "virustotal_result": None,
-        }
-
-    # Step 2: Scan extracted text through the engine
-    engine = request.app.state.scanner
-    result = await engine.scan(extracted_text, "sms", "en")
-    result["extracted_text"] = extracted_text[:500]
     return result
 
 

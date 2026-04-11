@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from core.config import settings
-from routers import auth, scanner, edu, challenges, voice
+from routers import auth, scanner, edu, challenges, voice, image_scan
 from ml.scanner_engine import ScannerEngine
 from utils.logger import logger
 
@@ -47,6 +47,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(scanner.router, prefix="/scan", tags=["scanner"])
+app.include_router(image_scan.router, prefix="/api", tags=["image-scan"])
 app.include_router(edu.router, prefix="/edu", tags=["edu"])
 app.include_router(challenges.router, prefix="/challenges", tags=["challenges"])
 app.include_router(voice.router, prefix="/voice", tags=["voice"])

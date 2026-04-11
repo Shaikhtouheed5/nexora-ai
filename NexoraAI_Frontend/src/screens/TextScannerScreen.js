@@ -9,6 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS, SHADOWS } from '../constants/theme';
 import { api, normalizeScanResult } from '../lib/api';
 import { scanImage } from '../utils/scanImage';
+import { apiCall } from '../utils/api';
 import { awardXP, awardBadge, XP_RULES } from '../lib/gamificationService';
 
 const SCAN_HISTORY_KEY = '@nexora_scan_history';
@@ -99,18 +100,20 @@ export default function TextScannerScreen({ user }) {
     setExtractedText('');
 
     try {
-      // Backend does OCR (Google Vision) + scan in one call — returns full result object
-      const raw = await scanImage(uri);
+      // Step 1: OCR — backend calls Google Vision, returns extracted text string
+      const text = await scanImage(uri);
 
-      if (raw.extracted_text) setExtractedText(raw.extracted_text);
-
-      if (!raw.extracted_text?.trim() || raw.verdict === 'unverified') {
+      if (!text?.trim()) {
         Alert.alert('No Text Found', 'No readable text found in the image. Try a clearer screenshot.');
         return;
       }
 
-      const scanResult = normalizeScanResult(raw);
-      await saveToHistory(raw.extracted_text, scanResult);
+      setExtractedText(text);
+
+      // Step 2: Scan the extracted text
+      const rawResult = await api.scanText(text.trim());
+      const scanResult = normalizeScanResult(rawResult);
+      await saveToHistory(text.trim(), scanResult);
       setResult(scanResult);
       animateResult();
 
@@ -121,6 +124,21 @@ export default function TextScannerScreen({ user }) {
       }
     } catch (e) {
       Alert.alert('Image Scan Error', e.message || 'Could not scan the image. Please try again.');
+    } finally {
+      setCameraScanning(false);
+    }
+  };
+
+  // Diagnostic: tests backend connectivity without a real image
+  const runDiagnosticTest = async () => {
+    setCameraScanning(true);
+    try {
+      const result = await apiCall('/api/scan-image', 'POST', { image: 'test' });
+      console.log('🧪 TEST RESULT:', result);
+      Alert.alert('Diagnostic', `Backend responded:\n${JSON.stringify(result).slice(0, 200)}`);
+    } catch (e) {
+      console.error('🧪 TEST FAILED:', e.message);
+      Alert.alert('Diagnostic Failed', e.message);
     } finally {
       setCameraScanning(false);
     }
@@ -243,6 +261,16 @@ export default function TextScannerScreen({ user }) {
         activeOpacity={0.8}
       >
         <Text style={styles.secondaryBtnText}>🖼️  Choose from Gallery</Text>
+      </TouchableOpacity>
+
+      {/* Diagnostic test button — tap to verify backend connectivity */}
+      <TouchableOpacity
+        style={[styles.secondaryBtn, { width: '100%', marginTop: 12, borderColor: 'rgba(255,179,0,0.3)' }, cameraScanning && styles.scanBtnDisabled]}
+        onPress={runDiagnosticTest}
+        disabled={cameraScanning}
+        activeOpacity={0.8}
+      >
+        <Text style={[styles.secondaryBtnText, { color: '#FFB300', fontSize: 13 }]}>🧪  Test Backend Connection</Text>
       </TouchableOpacity>
 
       {extractedText ? (
