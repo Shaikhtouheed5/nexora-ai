@@ -110,6 +110,72 @@ class ApiClient {
       .then(({ data }) => data || []);
   }
 
+  // ── XP & Lesson Completion (Supabase direct) ────────────────────────────
+  /**
+   * Add XP to a user's profile.
+   * Reads current XP first, then increments — safe without a DB function.
+   * @param {string} userId  Supabase user UUID
+   * @param {number} amount  XP to add (positive integer)
+   */
+  async updateUserXP(userId, amount) {
+    if (!userId || !amount) return;
+    try {
+      // Try users table first (primary)
+      const { data: row } = await supabase
+        .from('users')
+        .select('xp')
+        .eq('uid', userId)
+        .single();
+
+      if (row !== null) {
+        await supabase
+          .from('users')
+          .update({ xp: (row?.xp || 0) + amount })
+          .eq('uid', userId);
+        return;
+      }
+
+      // Fall back to profiles table
+      const { data: prof } = await supabase
+        .from('profiles')
+        .select('xp')
+        .eq('id', userId)
+        .single();
+
+      await supabase
+        .from('profiles')
+        .update({ xp: (prof?.xp || 0) + amount })
+        .eq('id', userId);
+    } catch (e) {
+      console.error('[api.updateUserXP]', e.message);
+    }
+  }
+
+  /**
+   * Mark a lesson as completed for a user.
+   * Upserts into user_lessons — safe to call multiple times.
+   * @param {string} userId    Supabase user UUID
+   * @param {string} lessonId  e.g. 'day-1'
+   */
+  async markLessonComplete(userId, lessonId) {
+    if (!userId || !lessonId) return;
+    try {
+      await supabase
+        .from('user_lessons')
+        .upsert(
+          {
+            user_id: userId,
+            lesson_id: lessonId,
+            completed: true,
+            completed_at: new Date().toISOString(),
+          },
+          { onConflict: 'user_id,lesson_id' }
+        );
+    } catch (e) {
+      console.error('[api.markLessonComplete]', e.message);
+    }
+  }
+
   // ── Legacy stubs (kept for backward-compat, no-op) ───────────────────────
   logout() {
     return supabase.auth.signOut();
