@@ -1,15 +1,12 @@
 /**
  * api.js — NexoraAI Web API Client
  * ==================================
- * Unified EDU API client using Supabase session tokens.
- * Migrated from custom JWT → Supabase auth.
- *
- * EDU backend: https://phishguard-1-8y86.onrender.com (port 8001)
+ * Unified backend: https://nexora-scanner.onrender.com
  */
 
 import { supabase } from './lib/supabase';
 
-const EDU_API_BASE = import.meta.env.VITE_EDU_API_URL || 'https://phishguard-1-8y86.onrender.com';
+const EDU_API_BASE = import.meta.env.VITE_API_URL || 'https://nexora-scanner.onrender.com';
 
 class ApiClient {
   async _getToken() {

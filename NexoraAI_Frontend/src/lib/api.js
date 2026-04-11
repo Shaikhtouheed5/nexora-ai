@@ -1,12 +1,11 @@
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Production Render URLs
+// Unified backend
 const SCANNER_API_BASE = 'https://nexora-scanner.onrender.com';
-const EDU_API_BASE = 'https://phishguard-1-8y86.onrender.com';
+const EDU_API_BASE = 'https://nexora-scanner.onrender.com';
 
-// Use SCANNER_API_BASE for scanning, EDU_API_BASE for everything else
-const API_BASE = EDU_API_BASE;
+const API_BASE = 'https://nexora-scanner.onrender.com';
 
 const SCAN_CACHE_KEY = 'phishguard_scan_cache';
 
