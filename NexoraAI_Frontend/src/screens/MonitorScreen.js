@@ -46,26 +46,35 @@ export default function MonitorScreen() {
 
   useEffect(() => {
     const init = async () => {
-      // Load cached results while scanning
       try {
-        const cached = await AsyncStorage.getItem(MONITOR_RESULTS_KEY);
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          setResults(parsed);
-          calculateStats(parsed);
+        // Load cached results while scanning
+        try {
+          const cached = await AsyncStorage.getItem(MONITOR_RESULTS_KEY);
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            setResults(parsed);
+            calculateStats(parsed);
+          }
+        } catch {}
+
+        const smsGranted = await requestSmsPermission();
+        if (!smsGranted) {
+          console.warn('SMS permission denied');
+          setPermDenied(true);
+          setLoading(false);
+          return;
         }
-      } catch {}
 
-      const smsGranted = await requestSmsPermission();
-      if (!smsGranted) {
-        console.warn('SMS permission denied');
-        setPermDenied(true);
+        // Delay after permission grant — native module needs time to settle
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        await scanMessages();
+        intervalRef.current = setInterval(scanMessages, AUTO_REFRESH_INTERVAL);
+      } catch (e) {
+        // If everything fails, still render the screen empty
+        console.warn('MonitorScreen init error:', e);
         setLoading(false);
-        return;
       }
-
-      await scanMessages();
-      intervalRef.current = setInterval(scanMessages, AUTO_REFRESH_INTERVAL);
     };
 
     init();
@@ -74,8 +83,15 @@ export default function MonitorScreen() {
 
   const scanMessages = async () => {
     try {
-      // getAllSMS handles native module availability and falls back to demo data
-      const { messages } = await getAllSMS();
+      let messages = [];
+      try {
+        const smsResult = await getAllSMS();
+        messages = smsResult?.messages || [];
+      } catch (e) {
+        console.warn('SMS read failed, using demo:', e);
+        // fall through with empty messages — screen still renders
+      }
+
       if (!messages.length) {
         setLoading(false);
         setRefreshing(false);
@@ -105,7 +121,7 @@ export default function MonitorScreen() {
       setLastUpdated(new Date());
       await AsyncStorage.setItem(MONITOR_RESULTS_KEY, JSON.stringify(scanned));
     } catch (e) {
-      console.error('MonitorScreen scanMessages error:', e);
+      console.warn('MonitorScreen scanMessages error:', e);
     } finally {
       setLoading(false);
       setRefreshing(false);

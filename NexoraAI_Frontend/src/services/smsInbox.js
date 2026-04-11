@@ -42,37 +42,44 @@ async function requestSmsPermission() {
  * Returns array of { id, sender, body, date }
  */
 function readNativeSMS() {
-    return new Promise((resolve, reject) => {
-        if (!SmsAndroid || !SmsAndroid.list) {
-            reject(new Error('Native SMS module not available or invalid'));
-            return;
-        }
-
-        const filter = {
-            box: 'inbox',
-            maxCount: 50, // Last 50 messages
-        };
-
-        SmsAndroid.list(
-            JSON.stringify(filter),
-            (fail) => {
-                reject(new Error(fail));
-            },
-            (count, smsList) => {
-                try {
-                    const messages = JSON.parse(smsList);
-                    const formatted = messages.map((sms, index) => ({
-                        id: `sms_${sms._id || index}`,
-                        sender: sms.address || 'Unknown',
-                        body: sms.body || '',
-                        date: sms.date ? new Date(parseInt(sms.date)).toISOString() : new Date().toISOString(),
-                    }));
-                    resolve(formatted);
-                } catch (err) {
-                    reject(err);
-                }
+    return new Promise((resolve) => {
+        try {
+            if (!SmsAndroid || !SmsAndroid.list) {
+                console.warn('SmsAndroid native module not available or missing list()');
+                return resolve([]);
             }
-        );
+
+            const filter = {
+                box: 'inbox',
+                maxCount: 50,
+            };
+
+            SmsAndroid.list(
+                JSON.stringify(filter),
+                (fail) => {
+                    console.warn('SmsAndroid.list failed:', fail);
+                    resolve([]);
+                },
+                (count, smsList) => {
+                    try {
+                        const messages = JSON.parse(smsList);
+                        const formatted = messages.map((sms, index) => ({
+                            id: `sms_${sms._id || index}`,
+                            sender: sms.address || 'Unknown',
+                            body: sms.body || '',
+                            date: sms.date ? new Date(parseInt(sms.date)).toISOString() : new Date().toISOString(),
+                        }));
+                        resolve(formatted);
+                    } catch (err) {
+                        console.warn('SMS parse error:', err);
+                        resolve([]);
+                    }
+                }
+            );
+        } catch (e) {
+            console.warn('readNativeSMS threw:', e);
+            resolve([]);
+        }
     });
 }
 
