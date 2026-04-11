@@ -316,3 +316,111 @@ def _save_scan_history(user_id: str, request: ScanRequest, response: ScanRespons
         }).execute()
     except Exception as exc:
         logger.warning(f"Failed to save scan history: {exc}")
+
+
+# ── AI Scenario Generation ─────────────────────────────────────────────────────
+
+class ScenarioRequest(BaseModel):
+    count: int = 6
+    difficulty: str = "mixed"   # "easy" | "hard" | "mixed"
+
+
+@router.post("/generate-scenarios")
+async def generate_scenarios(body: ScenarioRequest):
+    """
+    Generate AI-powered phishing training scenarios via Gemini.
+    Results are cached in Supabase 'scenario_cache' for 1 hour.
+    """
+    import os, json, httpx
+    from datetime import timezone as tz
+
+    count = max(1, min(body.count, 20))
+    difficulty = body.difficulty if body.difficulty in ("easy", "hard", "mixed") else "mixed"
+    cache_key = f"scenarios_{count}_{difficulty}"
+
+    # ── 1. Check Supabase cache ──
+    try:
+        supabase = get_supabase()
+        cached_row = (
+            supabase.table("scenario_cache")
+            .select("payload, created_at")
+            .eq("cache_key", cache_key)
+            .order("created_at", desc=True)
+            .limit(1)
+            .execute()
+        )
+        if cached_row.data:
+            row = cached_row.data[0]
+            created = datetime.fromisoformat(row["created_at"].replace("Z", "+00:00"))
+            age_seconds = (datetime.now(tz.utc) - created).total_seconds()
+            if age_seconds < 3600:
+                logger.info(f"Serving cached scenarios ({int(age_seconds)}s old)")
+                return {"scenarios": json.loads(row["payload"]), "cached": True}
+    except Exception as e:
+        logger.warning(f"scenario_cache read failed: {e}")
+
+    # ── 2. Call Gemini ──
+    gemini_key = os.environ.get("GEMINI_API_KEY", "")
+    if not gemini_key:
+        raise HTTPException(status_code=503, detail="GEMINI_API_KEY not configured")
+
+    difficulty_hint = {
+        "easy":  "Make phishing examples obvious with multiple clear red flags.",
+        "hard":  "Make phishing examples very subtle and hard to detect.",
+        "mixed": "Mix difficulty: 2 easy, 2 medium, 2 hard.",
+    }.get(difficulty, "")
+
+    prompt = f"""Generate {count} realistic SMS scenario training examples for a cybersecurity awareness app targeting Indian users. Mix of phishing and legitimate messages. Include Indian context (SBI, HDFC, Airtel, IRCTC, Jio, UPI, Aadhaar). {difficulty_hint}
+
+Return ONLY a valid JSON array, no markdown, no explanation outside the JSON:
+[
+  {{
+    "id": 1,
+    "sender": "string",
+    "message": "string",
+    "isPhishing": true,
+    "explanation": "string explaining why it is or isn't phishing",
+    "difficulty": "easy|medium|hard"
+  }}
+]
+
+Make phishing examples realistic with actual tactics: fake OTP requests, UPI fraud, KYC expiry threats, lottery/prize scams, fake delivery links, account suspension threats.
+Make legitimate examples also realistic: real bank transaction alerts (with partial account numbers), actual OTP format, delivery notifications, recharge confirmations.
+Return exactly {count} items. Alternate between phishing and legitimate messages."""
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(
+                f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_key}",
+                json={"contents": [{"parts": [{"text": prompt}]}]},
+            )
+            resp.raise_for_status()
+            raw_text = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+
+        # Strip markdown code fences if present
+        clean = raw_text.strip()
+        if clean.startswith("```"):
+            clean = clean.split("```", 2)[1]
+            if clean.startswith("json"):
+                clean = clean[4:]
+            clean = clean.rsplit("```", 1)[0]
+        scenarios = json.loads(clean.strip())
+
+    except Exception as e:
+        logger.error(f"Gemini scenario generation failed: {e}")
+        raise HTTPException(status_code=502, detail=f"AI generation failed: {str(e)}")
+
+    # ── 3. Cache result ──
+    try:
+        supabase = get_supabase()
+        supabase.table("scenario_cache").insert({
+            "id": str(uuid.uuid4()),
+            "cache_key": cache_key,
+            "payload": json.dumps(scenarios),
+            "created_at": datetime.now(tz.utc).isoformat(),
+        }).execute()
+    except Exception as e:
+        logger.warning(f"scenario_cache write failed: {e}")
+
+    return {"scenarios": scenarios, "cached": False}
+
