@@ -126,13 +126,17 @@ export default function LessonView({ user, profile, onLogout, refreshProfile }) 
     setLoading(true);
     setFetchError(false);
 
-    fetchLesson(lessonId)
-      .then(data => {
+    (async () => {
+      try {
+        const data = await fetchLesson(lessonId);
         if (!data) setFetchError(true);
         else setLesson(data);
-      })
-      .catch(() => setFetchError(true))
-      .finally(() => setLoading(false));
+      } catch {
+        setFetchError(true);
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, [lessonId]);
 
   // Poll every 10 s while video is generating
@@ -141,7 +145,8 @@ export default function LessonView({ user, profile, onLogout, refreshProfile }) 
     if (status !== 'pending' && status !== 'generating') return;
 
     const interval = setInterval(async () => {
-      const fresh = await fetchLesson(lessonId).catch(() => null);
+      let fresh = null;
+      try { fresh = await fetchLesson(lessonId); } catch { fresh = null; }
       if (fresh) setLesson(fresh);
       if (fresh?.video_status === 'ready' || fresh?.video_status === 'failed') {
         clearInterval(interval);

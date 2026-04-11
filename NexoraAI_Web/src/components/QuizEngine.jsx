@@ -193,31 +193,33 @@ export default function QuizEngine({ questions = [], lessonId, category, user, o
     if (user?.id) {
       try {
         // Award XP
-        await awardXP(user.id, earned).catch(() => {});
+        try { await awardXP(user.id, earned); } catch { /* non-critical */ }
 
         // Mark lesson complete
         if (lessonId) {
-          await supabase
-            .from('user_lessons')
-            .upsert(
-              { user_id: user.id, lesson_id: lessonId, completed: true, completed_at: new Date().toISOString() },
-              { onConflict: 'user_id,lesson_id' }
-            )
-            .catch(() => {});
+          try {
+            await supabase
+              .from('user_lessons')
+              .upsert(
+                { user_id: user.id, lesson_id: lessonId, completed: true, completed_at: new Date().toISOString() },
+                { onConflict: 'user_id,lesson_id' }
+              );
+          } catch { /* non-critical */ }
         }
 
         // Save quiz result
-        await supabase
-          .from('quiz_results')
-          .insert({
-            user_id: user.id,
-            quiz_id: lessonId || 'day-1',
-            score: finalCorrect,
-            total: totalQ,
-            accuracy_percent: Math.round((finalCorrect / totalQ) * 100),
-            completed_at: new Date().toISOString(),
-          })
-          .catch(() => {});
+        try {
+          await supabase
+            .from('quiz_results')
+            .insert({
+              user_id: user.id,
+              quiz_id: lessonId || 'day-1',
+              score: finalCorrect,
+              total: totalQ,
+              accuracy_percent: Math.round((finalCorrect / totalQ) * 100),
+              completed_at: new Date().toISOString(),
+            });
+        } catch { /* non-critical */ }
       } catch (e) {
         console.error('[QuizEngine] Failed to save result:', e);
       }

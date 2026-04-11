@@ -44,16 +44,16 @@ export default function DailyQuiz({ user, profile, onLogout, refreshProfile }) {
 
       // 3. Check if user already completed this quiz
       if (user?.id && dayId) {
-        const { data } = await supabase
-          .from('quiz_results')
-          .select('score, total, accuracy_percent, completed_at')
-          .eq('user_id', user.id)
-          .eq('quiz_id', dayId)
-          .order('completed_at', { ascending: false })
-          .limit(1)
-          .catch(() => ({ data: null }));
-
-        if (data?.[0]) setPrevResult(data[0]);
+        try {
+          const { data } = await supabase
+            .from('quiz_results')
+            .select('score, total, accuracy_percent, completed_at')
+            .eq('user_id', user.id)
+            .eq('quiz_id', dayId)
+            .order('completed_at', { ascending: false })
+            .limit(1);
+          if (data?.[0]) setPrevResult(data[0]);
+        } catch { /* non-critical — ignore */ }
       }
 
       setLoading(false);
