@@ -57,7 +57,8 @@
     2. popup.js comes second; all its logic is wrapped in DOMContentLoaded
        so the supabase global is guaranteed to exist when it runs
   -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Supabase bundled locally — CDN is blocked by Chrome Extension CSP -->
+  <script src="supabase.js"></script>
   <script src="popup.js"></script>
 </body>
 
