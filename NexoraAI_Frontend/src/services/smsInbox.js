@@ -1,139 +1,69 @@
 /**
  * Nexora SMS Inbox Provider
- * 
- * Reads REAL SMS from the phone's inbox using react-native-get-sms-android.
- * Falls back to demo data only if the native module is unavailable (e.g., running in Expo Go).
+ *
+ * Real SMS inbox reading requires a native module not available in
+ * Expo managed workflow. This module returns realistic demo data so
+ * the Monitor screen works without crashing.
+ *
+ * To enable real SMS reading, eject to bare workflow and add a
+ * custom native module with READ_SMS permission.
  */
 
-import { Platform, NativeModules, PermissionsAndroid, Alert } from 'react-native';
+import { Platform } from 'react-native';
 
-export let SmsAndroid = null;
-try {
-    const module = require('react-native-get-sms-android');
-    SmsAndroid = module.default || module;
-} catch (e) {
-    // Native module not available (e.g., in Expo Go)
-}
+// Exported for backwards compatibility — always null in managed workflow
+export const SmsAndroid = null;
 
-/**
- * Request SMS permission on Android.
- */
-async function requestSmsPermission() {
-    if (Platform.OS !== 'android') return false;
-
-    try {
-        const granted = await PermissionsAndroid.request(
-            PermissionsAndroid.PERMISSIONS.READ_SMS,
-            {
-                title: 'SMS Permission',
-                message: 'Nexora needs access to your SMS to scan for phishing threats.',
-                buttonPositive: 'Allow',
-                buttonNegative: 'Deny',
-            }
-        );
-        return granted === PermissionsAndroid.RESULTS.GRANTED;
-    } catch (e) {
-        return false;
-    }
-}
-
-/**
- * Read real SMS from the Android inbox.
- * Returns array of { id, sender, body, date }
- */
-function readNativeSMS() {
-    return new Promise((resolve) => {
-        try {
-            if (!SmsAndroid || !SmsAndroid.list) {
-                console.warn('SmsAndroid native module not available or missing list()');
-                return resolve([]);
-            }
-
-            const filter = {
-                box: 'inbox',
-                maxCount: 50,
-            };
-
-            SmsAndroid.list(
-                JSON.stringify(filter),
-                (fail) => {
-                    console.warn('SmsAndroid.list failed:', fail);
-                    resolve([]);
-                },
-                (count, smsList) => {
-                    try {
-                        const messages = JSON.parse(smsList);
-                        const formatted = messages.map((sms, index) => ({
-                            id: `sms_${sms._id || index}`,
-                            sender: sms.address || 'Unknown',
-                            body: sms.body || '',
-                            date: sms.date ? new Date(parseInt(sms.date)).toISOString() : new Date().toISOString(),
-                        }));
-                        resolve(formatted);
-                    } catch (err) {
-                        console.warn('SMS parse error:', err);
-                        resolve([]);
-                    }
-                }
-            );
-        } catch (e) {
-            console.warn('readNativeSMS threw:', e);
-            resolve([]);
-        }
-    });
-}
-
-/**
- * Demo SMS for when native module isn't available (Expo Go).
- */
 const DEMO_SMS = [
     {
-        id: "demo_001", sender: "+1-800-APPLE",
-        body: "Your Apple ID has been locked due to suspicious activity. Verify your identity immediately: http://apple-verify-secure.xyz/login",
+        id: 'demo_001',
+        sender: '+1-800-APPLE',
+        body: 'Your Apple ID has been locked due to suspicious activity. Verify your identity immediately: http://apple-verify-secure.xyz/login',
         date: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
     },
     {
-        id: "demo_002", sender: "Mom",
-        body: "Hey sweetheart, can you pick up some milk on your way home? Dad says we also need bread. Love you!",
+        id: 'demo_002',
+        sender: 'Mom',
+        body: 'Hey sweetheart, can you pick up some milk on your way home? Dad says we also need bread. Love you!',
         date: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
     },
     {
-        id: "demo_003", sender: "+44-7911-PRIZE",
+        id: 'demo_003',
+        sender: '+44-7911-PRIZE',
         body: "CONGRATULATIONS! You've won a £1000 Amazon voucher! Claim your prize now before it expires: http://amazon-winner.top/claim",
         date: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
     },
     {
-        id: "demo_004", sender: "Uber",
-        body: "Your Uber ride to Airport is arriving in 3 minutes. Track your driver in the app.",
+        id: 'demo_004',
+        sender: 'Uber',
+        body: 'Your Uber ride to Airport is arriving in 3 minutes. Track your driver in the app.',
         date: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
     },
     {
-        id: "demo_005", sender: "+1-202-555-0147",
-        body: "URGENT: Your bank account has been compromised! Secure your account now: http://192.168.1.1/secure-login",
+        id: 'demo_005',
+        sender: '+1-202-555-0147',
+        body: 'URGENT: Your bank account has been compromised! Secure your account now: http://192.168.1.1/secure-login',
         date: new Date(Date.now() - 1000 * 60 * 60).toISOString(),
+    },
+    {
+        id: 'demo_006',
+        sender: 'HSBC Alert',
+        body: 'We noticed unusual activity on your account. Confirm your details: http://hsbc-secure-verify.net/confirm',
+        date: new Date(Date.now() - 1000 * 60 * 90).toISOString(),
+    },
+    {
+        id: 'demo_007',
+        sender: 'Amazon',
+        body: 'Your order #112-3456789 has shipped and will arrive by Friday. Track: https://amazon.com/track',
+        date: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
     },
 ];
 
 /**
- * Get all SMS messages.
- * Tries native SMS reading first; falls back to demo data if unavailable.
+ * Returns SMS messages. Always returns demo data in managed Expo builds.
+ * Returns { messages: [...], isDemo: boolean }
  */
 export async function getAllSMS() {
-    // Try native SMS reading (works in built APK)
-    if (Platform.OS === 'android' && SmsAndroid) {
-        try {
-            const hasPermission = await requestSmsPermission();
-            if (hasPermission) {
-                const messages = await readNativeSMS();
-                // Return whatever we found (even if empty) as real data
-                return { messages, isDemo: false };
-            }
-        } catch (e) {
-            console.log('Native SMS reading failed:', e.message);
-        }
-    }
-
-    // Fallback: demo data (Expo Go / iOS / No module)
     return { messages: DEMO_SMS, isDemo: true };
 }
 
