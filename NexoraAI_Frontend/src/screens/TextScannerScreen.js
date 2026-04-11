@@ -8,28 +8,8 @@ import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS, SHADOWS } from '../constants/theme';
 import { api, normalizeScanResult } from '../lib/api';
+import { scanImage } from '../utils/scanImage';
 import { awardXP, awardBadge, XP_RULES } from '../lib/gamificationService';
-
-const GOOGLE_VISION_API_KEY = 'AIzaSyCOKwJJbMHd2dxkb3RBr3jtTOhXwILPYwk';
-
-const performOCR = async (base64Image) => {
-  const response = await fetch(
-    `https://vision.googleapis.com/v1/images:annotate?key=${GOOGLE_VISION_API_KEY}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        requests: [{
-          image: { content: base64Image },
-          features: [{ type: 'TEXT_DETECTION', maxResults: 1 }],
-        }],
-      }),
-    }
-  );
-  const data = await response.json();
-  if (data.error) throw new Error(data.error.message || 'Google Vision API error');
-  return data.responses?.[0]?.fullTextAnnotation?.text || '';
-};
 
 const SCAN_HISTORY_KEY = '@nexora_scan_history';
 const TABS = ['Paste & Scan', 'Camera Scan', 'History'];
@@ -113,24 +93,24 @@ export default function TextScannerScreen({ user }) {
     }
   };
 
-  const performImageScan = async (base64, source) => {
+  const performImageScan = async (uri) => {
     setCameraScanning(true);
     setResult(null);
     setExtractedText('');
 
     try {
-      // Step 1: OCR via Google Cloud Vision
-      const text = await performOCR(base64);
-      if (!text.trim()) {
+      // Backend does OCR (Google Vision) + scan in one call — returns full result object
+      const raw = await scanImage(uri);
+
+      if (raw.extracted_text) setExtractedText(raw.extracted_text);
+
+      if (!raw.extracted_text?.trim() || raw.verdict === 'unverified') {
         Alert.alert('No Text Found', 'No readable text found in the image. Try a clearer screenshot.');
         return;
       }
-      setExtractedText(text);
 
-      // Step 2: Scan extracted text with backend
-      const rawResult = await api.scanText(text.trim());
-      const scanResult = normalizeScanResult(rawResult);
-      await saveToHistory(text.trim(), scanResult);
+      const scanResult = normalizeScanResult(raw);
+      await saveToHistory(raw.extracted_text, scanResult);
       setResult(scanResult);
       animateResult();
 
@@ -160,12 +140,11 @@ export default function TextScannerScreen({ user }) {
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
-      base64: true,
       quality: 0.8,
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
     });
-    if (!result.canceled && result.assets?.[0]?.base64) {
-      await performImageScan(result.assets[0].base64, 'camera');
+    if (!result.canceled && result.assets?.[0]?.uri) {
+      await performImageScan(result.assets[0].uri);
     }
   };
 
@@ -183,12 +162,11 @@ export default function TextScannerScreen({ user }) {
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      base64: true,
       quality: 0.8,
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
     });
-    if (!result.canceled && result.assets?.[0]?.base64) {
-      await performImageScan(result.assets[0].base64, 'gallery');
+    if (!result.canceled && result.assets?.[0]?.uri) {
+      await performImageScan(result.assets[0].uri);
     }
   };
 

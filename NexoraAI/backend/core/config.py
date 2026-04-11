@@ -20,8 +20,9 @@ class Settings(BaseSettings):
     ELEVENLABS_API_KEY: str
     ELEVENLABS_MODEL: str = "eleven_multilingual_v2"
 
-    # Google Safe Browsing
+    # Google APIs
     GOOGLE_SAFE_BROWSING_API_KEY: str
+    GOOGLE_VISION_API_KEY: str
 
     # VirusTotal
     VIRUSTOTAL_API_KEY: str

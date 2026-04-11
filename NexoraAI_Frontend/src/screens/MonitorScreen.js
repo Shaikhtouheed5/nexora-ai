@@ -2,10 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, PermissionsAndroid, Platform, RefreshControl,
+  TextInput, KeyboardAvoidingView,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS } from '../constants/theme';
-import { api } from '../lib/api';
+import { api, normalizeScanResult } from '../lib/api';
 import { getAllSMS } from '../services/smsInbox';
 
 const MONITOR_RESULTS_KEY = '@nexora_monitor_results';
@@ -41,6 +42,9 @@ export default function MonitorScreen() {
   const [loading, setLoading]         = useState(true);
   const [refreshing, setRefreshing]   = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [pasteText, setPasteText]     = useState('');
+  const [pasteScanning, setPasteScanning] = useState(false);
+  const [pasteResult, setPasteResult] = useState(null);
   const intervalRef = useRef(null);
 
   useEffect(() => {
@@ -146,6 +150,20 @@ export default function MonitorScreen() {
     await scanMessages();
   };
 
+  const scanPastedText = async () => {
+    if (!pasteText.trim()) return;
+    setPasteScanning(true);
+    setPasteResult(null);
+    try {
+      const raw = await api.scanText(pasteText.trim());
+      setPasteResult(normalizeScanResult(raw));
+    } catch (e) {
+      setPasteResult({ riskLevel: 'SAFE', score: 0, reasons: [], explanation: e.message });
+    } finally {
+      setPasteScanning(false);
+    }
+  };
+
   const getRiskConfig = (riskLevel) =>
     RISK_CONFIG[riskLevel?.toUpperCase()] || RISK_CONFIG.SAFE;
 
@@ -186,6 +204,48 @@ export default function MonitorScreen() {
             <Text style={styles.statLabel}>{s.label}</Text>
           </View>
         ))}
+      </View>
+
+      {/* Manual SMS Paste Scanner */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>PASTE & SCAN SMS</Text>
+        <TextInput
+          style={styles.pasteInput}
+          multiline
+          placeholder="Paste a suspicious SMS here to scan it..."
+          placeholderTextColor={COLORS.textMuted}
+          value={pasteText}
+          onChangeText={setPasteText}
+          textAlignVertical="top"
+        />
+        <TouchableOpacity
+          style={[styles.pasteBtn, (!pasteText.trim() || pasteScanning) && { opacity: 0.5 }]}
+          onPress={scanPastedText}
+          disabled={!pasteText.trim() || pasteScanning}
+          activeOpacity={0.8}
+        >
+          {pasteScanning
+            ? <ActivityIndicator color="#000" size="small" />
+            : <Text style={styles.pasteBtnText}>🔍  Analyze SMS</Text>}
+        </TouchableOpacity>
+        {pasteResult && (() => {
+          const rc = getRiskConfig(pasteResult.riskLevel);
+          return (
+            <View style={[styles.pasteResultCard, { borderColor: rc.border, backgroundColor: rc.bg }]}>
+              <Text style={[styles.pasteResultLabel, { color: rc.color }]}>
+                {rc.emoji} {rc.label} — {pasteResult.score}/100
+              </Text>
+              {pasteResult.reasons?.length > 0 && (
+                <Text style={[styles.pasteResultReason, { color: rc.color }]}>
+                  • {pasteResult.reasons[0]}
+                </Text>
+              )}
+              {pasteResult.explanation ? (
+                <Text style={styles.pasteResultExplanation}>{pasteResult.explanation}</Text>
+              ) : null}
+            </View>
+          );
+        })()}
       </View>
 
       {/* Live Feedback */}
@@ -259,4 +319,12 @@ const styles = StyleSheet.create({
 
   empty:        { alignItems: 'center', paddingVertical: 40 },
   emptyText:    { fontSize: 14, color: COLORS.textMuted, fontWeight: '600' },
+
+  pasteInput:   { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: 14, color: COLORS.textPrimary, fontSize: 13, lineHeight: 20, minHeight: 90, marginHorizontal: 16, marginTop: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  pasteBtn:     { marginHorizontal: 16, marginTop: 10, marginBottom: 14, backgroundColor: '#00F5FF', borderRadius: 12, height: 48, alignItems: 'center', justifyContent: 'center' },
+  pasteBtnText: { fontSize: 14, fontWeight: '900', color: '#000' },
+  pasteResultCard:   { marginHorizontal: 16, marginBottom: 14, borderRadius: 12, padding: 14, borderWidth: 1 },
+  pasteResultLabel:  { fontSize: 14, fontWeight: '800', marginBottom: 6 },
+  pasteResultReason: { fontSize: 12, fontStyle: 'italic', marginBottom: 4 },
+  pasteResultExplanation: { fontSize: 12, color: COLORS.textMuted, lineHeight: 18 },
 });

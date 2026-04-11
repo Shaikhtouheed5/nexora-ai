@@ -43,6 +43,45 @@ const removeToken = async () => {
     }
 };
 
+/**
+ * Hardened API call — 10s timeout, full raw response logging.
+ * Accepts full URL or path (prefixed with API_BASE if path).
+ */
+export const apiCall = async (endpoint, method = 'GET', body = null) => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+
+    // Support both full URLs and /path endpoints
+    const url = endpoint.startsWith('http') ? endpoint : `${API_BASE}${endpoint}`;
+
+    try {
+        const token = await getToken();
+        const response = await fetch(url, {
+            method,
+            headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+            },
+            body: body ? JSON.stringify(body) : null,
+            signal: controller.signal,
+        });
+
+        const text = await response.text();
+        console.log('RAW RESPONSE:', text.slice(0, 500));
+
+        if (!response.ok) {
+            throw new Error(`API Error ${response.status}: ${text}`);
+        }
+
+        return JSON.parse(text);
+    } catch (error) {
+        console.error('API ERROR:', error.message);
+        throw error;
+    } finally {
+        clearTimeout(timeout);
+    }
+};
+
 // Caching Helpers
 const getCache = async () => {
     try {
@@ -200,26 +239,11 @@ export const api = {
     },
 
     /**
-     * Scan arbitrary text for phishing patterns (used by TextScannerScreen).
-     * Calls the new /api/scan/text endpoint on the scanner backend.
-     * Returns: { riskLevel: 'SAFE'|'SUSPICIOUS'|'MALICIOUS', score: 0-100, reasons: string[] }
+     * Scan arbitrary text for phishing patterns.
+     * Returns raw backend response — call normalizeScanResult() on the result.
      */
     async scanText(text) {
-        const token = await getToken();
-        const res = await fetch(`${SCANNER_API_BASE}/scan/text`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({ text }),
-        });
-        if (res.status === 401) throw new Error('Unauthorized');
-        const raw = await res.text();
-        let data;
-        try { data = JSON.parse(raw); } catch { throw new Error('Server error: ' + raw.slice(0, 100)); }
-        if (!res.ok) throw new Error(data.detail || `Scan failed (${res.status})`);
-        return data;
+        return apiCall('/scan/text', 'POST', { content: text, type: 'sms', language: 'en' });
     },
 
     /**
