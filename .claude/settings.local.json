@@ -12,7 +12,9 @@
       "Bash(npm uninstall:*)",
       "Bash(gh api:*)",
       "Bash([ -f \"$PROJ/$f\" ])",
-      "Bash([ -e \"$PROJ/$p\" ])"
+      "Bash([ -e \"$PROJ/$p\" ])",
+      "Bash(pip cache:*)",
+      "Bash(dir)"
     ]
   }
 }
