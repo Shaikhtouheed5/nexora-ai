@@ -143,7 +143,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             badge.className   = 'badge ' + classification.toLowerCase().replace(/\s+/g, '-');
 
             // Render risk score + confidence
-            riskScoreText.textContent = `Risk Score: ${Math.round(riskScore * 100)}% • Confidence: ${confidence.toUpperCase() || 'N/A'}`;
+            riskScoreText.textContent = `Risk Score: ${Math.round(riskScore)}% • Confidence: ${confidence.toUpperCase() || 'N/A'}`;
 
             // Render explanation
             if (explanation) {
