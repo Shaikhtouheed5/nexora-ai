@@ -76,6 +76,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         riskScoreText.textContent = '';
         explanationText.style.display = 'none';
         riskFactors.innerHTML = '<div class="risk-item" style="color: grey;">Analyzing payload...</div>';
+        // Cold-start warning — shown after 5s, cleared when result arrives
+        let coldStartTimer = null;
 
         try {
             const { token, scanCache } = await chrome.storage.local.get(['token', 'scanCache']);
@@ -91,15 +93,32 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             if (!data) {
-                // Fix #3: Correct request body — content + content_type (was: message)
-                const res = await fetch(`${SCANNER_API_BASE}/scanner/scan/text`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({ content: text, content_type: "text" })
-                });
+                // 60-second timeout via AbortController (handles Render cold starts)
+                const controller = new AbortController();
+                const hardTimeout = setTimeout(() => controller.abort(), 60_000);
+
+                // After 5s with no response, warn the user about cold start
+                coldStartTimer = setTimeout(() => {
+                    riskFactors.innerHTML =
+                        '<div class="risk-item" style="color: #8BA1C5;">⏳ Waking up scanner — Render free tier may take up to 60s on first request. Please wait…</div>';
+                }, 5_000);
+
+                let res;
+                try {
+                    res = await fetch(`${SCANNER_API_BASE}/scanner/scan/text`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({ content: text, content_type: "text" }),
+                        signal: controller.signal,
+                    });
+                } finally {
+                    clearTimeout(hardTimeout);
+                    clearTimeout(coldStartTimer);   // clear warning once responded
+                    coldStartTimer = null;
+                }
 
                 if (!res.ok) {
                     throw new Error(`Scanner returned HTTP ${res.status}`);
@@ -189,9 +208,17 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
         } catch (e) {
-            badge.textContent           = 'Error';
-            riskScoreText.textContent   = 'Could not reach scanner';
-            riskFactors.innerHTML       = `<div class="risk-item" style="color: var(--malicious);">${e.message}</div>`;
+            // Clear any pending cold-start timer if an error fires early
+            if (coldStartTimer) { clearTimeout(coldStartTimer); coldStartTimer = null; }
+
+            const isTimeout = e.name === 'AbortError';
+            badge.textContent         = isTimeout ? 'Timeout' : 'Error';
+            riskScoreText.textContent = isTimeout
+                ? 'Scanner did not respond within 60s — try again in a moment'
+                : 'Could not reach scanner';
+            riskFactors.innerHTML = `<div class="risk-item" style="color: var(--malicious);">${
+                isTimeout ? '⏱ Request timed out. Render free tier may still be waking up — please retry.' : e.message
+            }</div>`;
         }
 
         scanBtn.disabled = false;
