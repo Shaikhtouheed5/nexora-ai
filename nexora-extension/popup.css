@@ -164,7 +164,7 @@ button {
   font-size: 16px;
   cursor: pointer;
   transition: var(--transition);
-  display: center;
+  display: flex;
   justify-content: center;
   align-items: center;
   gap: 8px;
@@ -231,10 +231,22 @@ button.secondary:hover {
   color: white;
 }
 
-#confidence-text {
+#confidence-text,
+#risk-score-text {
   font-weight: 600;
   font-size: 15px;
   margin: 0 0 12px 0;
+}
+
+#explanation-text {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin: 0 0 12px 0;
+  padding: 10px 12px;
+  background: rgba(255,255,255,0.04);
+  border-radius: 10px;
+  border-left: 2px solid var(--primary);
 }
 
 #risk-factors {

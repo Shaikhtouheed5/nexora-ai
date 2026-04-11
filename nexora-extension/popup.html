@@ -4,6 +4,10 @@
 <head>
   <meta charset="UTF-8">
   <title>Nexora AI</title>
+  <!-- Fix #6: Inter font from Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Fix #2: Supabase JS via CDN (no bundler needed) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link rel="stylesheet" href="popup.css">
 </head>
 
@@ -37,7 +41,8 @@
       <div id="result-container" style="display: none;">
         <div id="classification-badge" class="badge">Checking...</div>
         <div id="risk-info">
-          <p id="confidence-text"></p>
+          <p id="risk-score-text"></p>
+          <div id="explanation-text" style="display:none;"></div>
           <div id="risk-factors"></div>
         </div>
       </div>
