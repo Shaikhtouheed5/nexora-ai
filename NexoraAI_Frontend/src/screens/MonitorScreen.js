@@ -8,6 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS } from '../constants/theme';
 import { api, normalizeScanResult } from '../lib/api';
 import { getAllSMS } from '../services/smsInbox';
+import { requestPermission as requestSmsNativePermission, startListening } from '../hooks/useSmsScanner';
 
 const MONITOR_RESULTS_KEY = '@nexora_monitor_results';
 const AUTO_REFRESH_INTERVAL = 60000; // 60 seconds
@@ -45,7 +46,8 @@ export default function MonitorScreen() {
   const [pasteText, setPasteText]     = useState('');
   const [pasteScanning, setPasteScanning] = useState(false);
   const [pasteResult, setPasteResult] = useState(null);
-  const intervalRef = useRef(null);
+  const intervalRef  = useRef(null);
+  const unlistenRef  = useRef(null);
 
   useEffect(() => {
     const init = async () => {
@@ -60,24 +62,57 @@ export default function MonitorScreen() {
           }
         } catch {}
 
-        // Request SMS permission silently — but never block on denial.
-        // In Expo managed workflow, SMS permission may always fail on Android.
-        // The demo data from getAllSMS() is the intended fallback behavior.
+        // Request SMS permissions via native module (bare workflow) then legacy
         try {
-          await requestSmsPermission();
-        } catch {}
+          await requestSmsNativePermission();
+        } catch {
+          try { await requestSmsPermission(); } catch {}
+        }
 
+        // Start real-time BroadcastReceiver listener for incoming SMS
+        unlistenRef.current = startListening(async ({ sender, body, id, date }) => {
+          if (!body?.trim()) return;
+          try {
+            const raw = await api.scanText(body.trim());
+            const riskLevel = (raw.verdict || raw.riskLevel || 'SAFE').toUpperCase();
+            const confidence = raw.confidence ?? 0;
+            const score = raw.score !== undefined && raw.score !== null
+              ? (() => { const s = Number(raw.score); return s > 0 && s <= 1 ? Math.round(s * 100) : Math.round(s); })()
+              : Math.round(confidence * 100);
+            const newItem = {
+              id: id || String(Date.now()),
+              preview: body.slice(0, 100),
+              sender: sender || 'Unknown',
+              date: date || new Date().toISOString(),
+              riskLevel,
+              score: Math.min(100, Math.max(0, score)),
+              reasons: raw.reasons || raw.flags || [],
+            };
+            setResults(prev => {
+              const updated = [newItem, ...prev].slice(0, 50);
+              calculateStats(updated);
+              AsyncStorage.setItem(MONITOR_RESULTS_KEY, JSON.stringify(updated)).catch(() => {});
+              return updated;
+            });
+          } catch (e) {
+            console.warn('[MonitorScreen] Real-time scan error:', e.message);
+          }
+        });
+
+        // Initial inbox scan + periodic refresh
         await scanMessages();
         intervalRef.current = setInterval(scanMessages, AUTO_REFRESH_INTERVAL);
       } catch (e) {
-        // If everything fails, still render the screen empty
         console.warn('MonitorScreen init error:', e);
         setLoading(false);
       }
     };
 
     init();
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      unlistenRef.current?.();
+    };
   }, []);
 
   const scanMessages = async () => {
