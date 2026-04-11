@@ -105,13 +105,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 let res;
                 try {
-                    res = await fetch(`${SCANNER_API_BASE}/scanner/scan/text`, {
+                    res = await fetch(`${SCANNER_API_BASE}/scan`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
                             'Authorization': `Bearer ${token}`
                         },
-                        body: JSON.stringify({ content: text, content_type: "text" }),
+                        body: JSON.stringify({ content: text, content_type: "sms" }),
                         signal: controller.signal,
                     });
                 } finally {
@@ -136,13 +136,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             const riskScore      = data.risk_score ?? data.data?.score ?? 0;
             const flags          = data.flags ?? data.data?.reasons ?? [];
             const explanation    = data.explanation || data.data?.explanation || '';
+            const confidence     = data.confidence || '';
 
             // Render badge
             badge.textContent = classification;
             badge.className   = 'badge ' + classification.toLowerCase().replace(/\s+/g, '-');
 
-            // Render risk score
-            riskScoreText.textContent = `Risk Score: ${Math.round(riskScore * 100)}%`;
+            // Render risk score + confidence
+            riskScoreText.textContent = `Risk Score: ${Math.round(riskScore * 100)}% • Confidence: ${confidence.toUpperCase() || 'N/A'}`;
 
             // Render explanation
             if (explanation) {
