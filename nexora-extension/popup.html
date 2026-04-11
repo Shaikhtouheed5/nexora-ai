@@ -4,10 +4,8 @@
 <head>
   <meta charset="UTF-8">
   <title>Nexora AI</title>
-  <!-- Fix #6: Inter font from Google Fonts -->
+  <!-- Inter font -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <!-- Fix #2: Supabase JS via CDN (no bundler needed) -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link rel="stylesheet" href="popup.css">
 </head>
 
@@ -52,6 +50,14 @@
       </div>
     </div>
   </div>
+
+  <!--
+    SCRIPT LOAD ORDER — DO NOT CHANGE:
+    1. Supabase CDN must come first so `supabase` global is defined
+    2. popup.js comes second; all its logic is wrapped in DOMContentLoaded
+       so the supabase global is guaranteed to exist when it runs
+  -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="popup.js"></script>
 </body>
 
