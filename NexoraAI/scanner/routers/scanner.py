@@ -226,6 +226,7 @@ async def scan_image_endpoint(
         import pytesseract
         from PIL import Image
         import io
+        pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
         img_bytes = _b64.b64decode(body.image)
         img = Image.open(io.BytesIO(img_bytes))
         extracted_text = pytesseract.image_to_string(img).strip()
