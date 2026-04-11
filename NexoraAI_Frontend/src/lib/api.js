@@ -68,6 +68,45 @@ const getFromCache = async (key) => {
     return cache[key]?.result || null;
 };
 
+/**
+ * Normalize scan results from the backend into a consistent format.
+ * Handles both old format { riskLevel, score, reasons } and
+ * new backend format { verdict, confidence, flags, explanation }.
+ * Always returns { riskLevel: string, score: number (0-100), reasons: string[], explanation: string }.
+ */
+export const normalizeScanResult = (raw) => {
+  if (!raw || typeof raw !== 'object') {
+    return { riskLevel: 'SAFE', score: 0, reasons: [], explanation: '' };
+  }
+
+  // Derive riskLevel
+  const riskLevel = (raw.verdict || raw.riskLevel || 'SAFE').toUpperCase();
+
+  // Derive score (normalize to 0-100 integer)
+  let score;
+  if (raw.score !== undefined && raw.score !== null) {
+    const s = Number(raw.score);
+    if (s > 100) {
+      score = Math.round(s / 100); // e.g. 0-10000 scale
+    } else if (s > 0 && s <= 1) {
+      score = Math.round(s * 100); // 0.0–1.0 float
+    } else {
+      score = Math.round(s); // already 0-100
+    }
+  } else if (raw.confidence !== undefined && raw.confidence !== null) {
+    score = Math.round(Number(raw.confidence) * 100);
+  } else {
+    // Default by risk level if no score available
+    score = riskLevel === 'SAFE' ? 15 : riskLevel === 'SUSPICIOUS' ? 55 : 85;
+  }
+  score = Math.min(100, Math.max(0, score));
+
+  const reasons = raw.reasons || raw.flags || [];
+  const explanation = raw.explanation || '';
+
+  return { riskLevel, score, reasons, explanation };
+};
+
 export const api = {
     // Generic Helpers
     async get(endpoint, options = {}) {

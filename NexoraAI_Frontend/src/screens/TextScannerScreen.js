@@ -2,13 +2,34 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
   ScrollView, ActivityIndicator, Alert, Platform,
-  Animated, KeyboardAvoidingView
+  Animated, KeyboardAvoidingView, Linking,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS, SHADOWS } from '../constants/theme';
-import { api } from '../lib/api';
+import { api, normalizeScanResult } from '../lib/api';
 import { awardXP, awardBadge, XP_RULES } from '../lib/gamificationService';
+
+const GOOGLE_VISION_API_KEY = 'AIzaSyCOKwJJbMHd2dxkb3RBr3jtTOhXwILPYwk';
+
+const performOCR = async (base64Image) => {
+  const response = await fetch(
+    `https://vision.googleapis.com/v1/images:annotate?key=${GOOGLE_VISION_API_KEY}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        requests: [{
+          image: { content: base64Image },
+          features: [{ type: 'TEXT_DETECTION', maxResults: 1 }],
+        }],
+      }),
+    }
+  );
+  const data = await response.json();
+  if (data.error) throw new Error(data.error.message || 'Google Vision API error');
+  return data.responses?.[0]?.fullTextAnnotation?.text || '';
+};
 
 const SCAN_HISTORY_KEY = '@nexora_scan_history';
 const TABS = ['Paste & Scan', 'Camera Scan', 'History'];
@@ -74,7 +95,8 @@ export default function TextScannerScreen({ user }) {
     setResult(null);
 
     try {
-      const scanResult = await api.scanText(text.trim());
+      const raw = await api.scanText(text.trim());
+      const scanResult = normalizeScanResult(raw);
       setResult(scanResult);
       await saveToHistory(text.trim(), scanResult);
       animateResult();
@@ -91,51 +113,50 @@ export default function TextScannerScreen({ user }) {
     }
   };
 
-  const performImageScan = async (base64) => {
+  const performImageScan = async (base64, source) => {
     setCameraScanning(true);
     setResult(null);
     setExtractedText('');
 
     try {
-      const SCANNER_BASE = 'https://nexora-scanner.onrender.com';
-      let token = null;
-      try {
-        const raw = await AsyncStorage.getItem('sb-oyvyeutjidgafipmgixz-auth-token');
-        if (raw) token = JSON.parse(raw).access_token;
-      } catch {}
-      const res = await fetch(`${SCANNER_BASE}/scan/image`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ image: base64 }),
-      });
-      const raw = await res.text();
-      let data;
-      try { data = JSON.parse(raw); } catch { throw new Error('Server error: ' + raw.slice(0, 100)); }
-
-      if (data.status === 'error') throw new Error(data.error || 'Image scan failed');
-
-      const scanResult = data?.data || data;
-      if (!scanResult) throw new Error('Invalid response from server');
-      if (scanResult.extracted_text) {
-        setExtractedText(scanResult.extracted_text);
-        await saveToHistory(scanResult.extracted_text, scanResult);
+      // Step 1: OCR via Google Cloud Vision
+      const text = await performOCR(base64);
+      if (!text.trim()) {
+        Alert.alert('No Text Found', 'No readable text found in the image. Try a clearer screenshot.');
+        return;
       }
+      setExtractedText(text);
+
+      // Step 2: Scan extracted text with backend
+      const rawResult = await api.scanText(text.trim());
+      const scanResult = normalizeScanResult(rawResult);
+      await saveToHistory(text.trim(), scanResult);
       setResult(scanResult);
       animateResult();
+
+      if (!firstScanDone && user?.id) {
+        await awardXP(user.id, XP_RULES.FIRST_SCAN);
+        await awardBadge(user.id, 'scam_detector');
+        setFirstScanDone(true);
+      }
     } catch (e) {
-      Alert.alert('Image Scan Error', e.message || 'Could not scan the image.');
+      Alert.alert('Image Scan Error', e.message || 'Could not scan the image. Please try again.');
     } finally {
       setCameraScanning(false);
     }
   };
 
   const launchCamera = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission Required', 'Camera access is needed to scan images for threats.');
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (perm.status !== 'granted') {
+      Alert.alert(
+        'Camera Permission Required',
+        'Enable camera access in Settings to scan suspicious messages.',
+        [
+          { text: 'Open Settings', onPress: () => Linking.openSettings() },
+          { text: 'Cancel', style: 'cancel' },
+        ]
+      );
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
@@ -144,14 +165,21 @@ export default function TextScannerScreen({ user }) {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
     });
     if (!result.canceled && result.assets?.[0]?.base64) {
-      await performImageScan(result.assets[0].base64);
+      await performImageScan(result.assets[0].base64, 'camera');
     }
   };
 
   const launchGallery = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission Required', 'Photo library access is needed to scan images.');
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (perm.status !== 'granted') {
+      Alert.alert(
+        'Photo Access Required',
+        'Enable photo library access in Settings to scan screenshots.',
+        [
+          { text: 'Open Settings', onPress: () => Linking.openSettings() },
+          { text: 'Cancel', style: 'cancel' },
+        ]
+      );
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -160,7 +188,7 @@ export default function TextScannerScreen({ user }) {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
     });
     if (!result.canceled && result.assets?.[0]?.base64) {
-      await performImageScan(result.assets[0].base64);
+      await performImageScan(result.assets[0].base64, 'gallery');
     }
   };
 

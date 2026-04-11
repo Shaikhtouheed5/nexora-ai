@@ -8,6 +8,7 @@ import { COLORS, SHADOWS } from '../constants/theme';
 import { supabase } from '../lib/supabase.js';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
+import { makeRedirectUri } from 'expo-auth-session';
 
 // Required for expo-auth-session to work
 WebBrowser.maybeCompleteAuthSession();
@@ -142,7 +143,7 @@ export default function LoginScreen({ onLogin }) {
                   setGoogleLoading(true);
                   clear();
                   try {
-                    const redirectTo = Linking.createURL('auth/callback');
+                    const redirectTo = makeRedirectUri({ scheme: 'nexoraai' });
                     const { data, error } = await supabase.auth.signInWithOAuth({
                       provider: 'google',
                       options: {
@@ -154,8 +155,9 @@ export default function LoginScreen({ onLogin }) {
                     if (data?.url) {
                       const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
                       if (result.type === 'success' && result.url) {
-                        const parsed = Linking.parse(result.url);
-                        // tokens can be in queryParams (hash fragment) or directly
+                        // Supabase returns tokens in hash fragment — convert # to ? for parsing
+                        const urlWithQuery = result.url.replace('#', '?');
+                        const parsed = Linking.parse(urlWithQuery);
                         const access_token = parsed.queryParams?.access_token;
                         const refresh_token = parsed.queryParams?.refresh_token;
                         if (access_token && refresh_token) {
@@ -164,7 +166,12 @@ export default function LoginScreen({ onLogin }) {
                             refresh_token,
                           });
                           if (sessionError) throw sessionError;
-                          if (sessionData?.user) onLogin(sessionData.user);
+                          // onAuthStateChange in App.js will handle navigation automatically
+                        } else {
+                          // Fallback: try getSessionFromUrl
+                          try {
+                            await supabase.auth.getSessionFromUrl({ url: urlWithQuery });
+                          } catch {}
                         }
                       }
                     }

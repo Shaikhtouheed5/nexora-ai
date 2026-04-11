@@ -40,7 +40,6 @@ export default function MonitorScreen() {
   const [stats, setStats]             = useState({ total: 0, threats: 0, suspicious: 0, safe: 0 });
   const [loading, setLoading]         = useState(true);
   const [refreshing, setRefreshing]   = useState(false);
-  const [permDenied, setPermDenied]   = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
   const intervalRef = useRef(null);
 
@@ -57,16 +56,12 @@ export default function MonitorScreen() {
           }
         } catch {}
 
-        const smsGranted = await requestSmsPermission();
-        if (!smsGranted) {
-          console.warn('SMS permission denied');
-          setPermDenied(true);
-          setLoading(false);
-          return;
-        }
-
-        // Delay after permission grant — native module needs time to settle
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Request SMS permission silently — but never block on denial.
+        // In Expo managed workflow, SMS permission may always fail on Android.
+        // The demo data from getAllSMS() is the intended fallback behavior.
+        try {
+          await requestSmsPermission();
+        } catch {}
 
         await scanMessages();
         intervalRef.current = setInterval(scanMessages, AUTO_REFRESH_INTERVAL);
@@ -102,14 +97,25 @@ export default function MonitorScreen() {
       for (const msg of messages.slice(0, 50)) {
         try {
           const result = await api.scanText(msg.body || '');
+          // Map new backend format { verdict, confidence, flags, explanation }
+          // AND old format { riskLevel, score, reasons } — handle both
+          const riskLevel = (result.verdict || result.riskLevel || 'SAFE').toUpperCase();
+          const score = result.score !== undefined && result.score !== null
+            ? (() => {
+                const s = Number(result.score);
+                if (s > 0 && s <= 1) return Math.round(s * 100);
+                return Math.round(s);
+              })()
+            : Math.round((result.confidence ?? 0) * 100);
+          const reasons = result.reasons || result.flags || [];
           scanned.push({
             id: msg.id || String(Date.now() + Math.random()),
             preview: (msg.body || '').slice(0, 100),
             sender: msg.sender || 'Unknown',
             date: msg.date || new Date().toISOString(),
-            riskLevel: result.riskLevel || 'SAFE',
-            score: result.score ?? 0,
-            reasons: result.reasons || [],
+            riskLevel,
+            score: Math.min(100, Math.max(0, score)),
+            reasons,
           });
         } catch {
           // skip individual scan failures silently
@@ -148,18 +154,6 @@ export default function MonitorScreen() {
       <View style={styles.centered}>
         <ActivityIndicator color={COLORS.primary} size="large" />
         <Text style={styles.loadingText}>Scanning SMS inbox...</Text>
-      </View>
-    );
-  }
-
-  if (permDenied) {
-    return (
-      <View style={styles.centered}>
-        <Text style={{ fontSize: 48, marginBottom: 16 }}>🔒</Text>
-        <Text style={styles.permTitle}>SMS Permission Required</Text>
-        <Text style={styles.permSubtitle}>
-          Enable it in device Settings → Apps → NexoraAI → Permissions → SMS.
-        </Text>
       </View>
     );
   }
@@ -239,8 +233,6 @@ const styles = StyleSheet.create({
   container:    { flex: 1, backgroundColor: COLORS.bg },
   centered:     { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32, backgroundColor: COLORS.bg },
   loadingText:  { color: COLORS.textMuted, marginTop: 16, fontSize: 13, fontWeight: '600' },
-  permTitle:    { fontSize: 18, fontWeight: '900', color: COLORS.textPrimary, marginBottom: 12, textAlign: 'center' },
-  permSubtitle: { fontSize: 14, color: COLORS.textMuted, textAlign: 'center', lineHeight: 22 },
 
   header:       { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 8 },
   title:        { fontSize: 26, fontWeight: '900', color: COLORS.textPrimary },

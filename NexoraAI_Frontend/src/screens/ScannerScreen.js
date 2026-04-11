@@ -12,7 +12,7 @@ import { Shield, Smartphone, Activity, AlertTriangle, ShieldCheck, ShieldAlert, 
 import { COLORS, SHADOWS, STATUS_CONFIG } from '../constants/theme';
 import { useTheme } from '../lib/ThemeContext';
 import { useI18n } from '../lib/i18n';
-import { api } from '../lib/api';
+import { api, normalizeScanResult } from '../lib/api';
 import { getAllSMS, getRelativeTime, SmsAndroid } from '../services/smsInbox';
 import ResultCard from '../components/ResultCard';
 import AnalysisModal from '../components/AnalysisModal';
@@ -314,8 +314,8 @@ export default function ScannerScreen() {
         setQuickScanLoading(true);
         setQuickScanResult(null);
         try {
-            const result = await api.scanText(quickScanText.trim());
-            setQuickScanResult(result);
+            const raw = await api.scanText(quickScanText.trim());
+            setQuickScanResult(normalizeScanResult(raw));
         } catch (e) {
             Alert.alert('Scan Failed', e.message || 'Could not reach the server.');
         } finally {

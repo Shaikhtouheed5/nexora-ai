@@ -3,7 +3,7 @@
     "name": "NexoraAI",
     "slug": "nexoraai",
     "version": "1.0.0",
-    "scheme": "nexora",
+    "scheme": "nexoraai",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "platforms": [
@@ -22,7 +22,7 @@
           "autoVerify": true,
           "data": [
             {
-              "scheme": "nexora",
+              "scheme": "nexoraai",
               "host": "auth",
               "pathPrefix": "/callback"
             }
