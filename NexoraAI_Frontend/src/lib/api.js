@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from './supabase';
 
 // Unified backend
 const SCANNER_API_BASE = 'https://nexora-scanner.onrender.com';
@@ -9,22 +10,33 @@ const API_BASE = 'https://nexora-scanner.onrender.com';
 
 const SCAN_CACHE_KEY = 'phishguard_scan_cache';
 
-// Helper to get token
+// Helper to get token — always uses supabase.auth.getSession() so expired
+// tokens are refreshed automatically before any API call.
 const getToken = async () => {
+    try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.access_token) return session.access_token;
+    } catch (e) {
+        console.warn('[getToken] getSession failed:', e.message);
+    }
+    // Raw-storage fallbacks (used if Supabase client is unavailable)
     if (Platform.OS === 'web') {
-        // Web uses Supabase localStorage key
         try {
             const raw = localStorage.getItem('sb-oyvyeutjidgafipmgixz-auth-token');
             if (raw) return JSON.parse(raw).access_token;
         } catch {}
-        return localStorage.getItem('jwt_token'); // fallback
+        return localStorage.getItem('jwt_token');
     }
-    // Mobile uses Supabase AsyncStorage key
     try {
         const raw = await AsyncStorage.getItem('sb-oyvyeutjidgafipmgixz-auth-token');
-        if (raw) return JSON.parse(raw).access_token;
+        if (raw) {
+            const parsed = JSON.parse(raw);
+            return parsed.access_token
+                || parsed.currentSession?.access_token
+                || null;
+        }
     } catch {}
-    return await AsyncStorage.getItem('jwt_token'); // fallback
+    return await AsyncStorage.getItem('jwt_token');
 };
 
 const setToken = async (token) => {

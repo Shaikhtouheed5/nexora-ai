@@ -94,38 +94,35 @@ export default function ScannerScreen() {
     const pulseAnim = useRef(new Animated.Value(1)).current;
 
     useEffect(() => {
-        // Request SMS permissions on mount (required for Android 13+/16)
-        requestSmsPermissions().then(granted => {
-            if (!granted) {
-                console.warn('[ScannerScreen] SMS permissions not granted');
+        const initSms = async () => {
+            const granted = await requestSmsPermissions();
+            if (granted) {
+                scanAllMessages();
+            } else {
                 Alert.alert(
                     'SMS Permission Required',
-                    'NexoraAI needs SMS access to scan your messages for phishing threats.\n\nGo to Settings → Apps → NexoraAI → Permissions → SMS to enable it.',
+                    'NexoraAI needs SMS access to scan your messages.\n\nGo to Settings → Apps → NexoraAI → Permissions → SMS to enable it.',
                     [
                         { text: 'Open Settings', onPress: () => Linking.openSettings() },
                         { text: 'Skip', style: 'cancel' },
                     ]
                 );
             }
-        });
+        };
 
-        // Re-check SMS permission when user returns from Settings
+        initSms();
+        loadAdvice();
+
+        // Re-check permission when user returns from Settings
         const appStateSubscription = AppState.addEventListener('change', async (nextState) => {
             if (nextState === 'active') {
                 const granted = await requestSmsPermissions();
-                if (granted) {
-                    console.log('[ScannerScreen] SMS permission granted after returning from Settings');
-                    scanAllMessages();
-                }
+                if (granted) scanAllMessages();
             }
         });
 
-        scanAllMessages();
-        loadAdvice();
-
-        // New efficient event-driven flow
+        // Real-time incoming SMS via native BroadcastReceiver or polling fallback
         smsService.start(async (text) => {
-            console.log('📬 New message detected via service');
             await handleNewIncomingMessage(text);
         });
 
@@ -529,6 +526,14 @@ export default function ScannerScreen() {
                         </View>
                     </View>
 
+                    {isDemo && (
+                        <View style={styles.demoBanner}>
+                            <Text style={styles.demoBannerText}>
+                                ⚠️ Showing demo data — grant SMS permission to see real messages
+                            </Text>
+                        </View>
+                    )}
+
                     {filteredMessages.length === 0 ? (
                         <View style={styles.emptyState}>
                             <Smartphone size={48} color={colors.textMuted} style={{ opacity: 0.5, marginBottom: 16 }} />
@@ -797,6 +802,16 @@ const styles = StyleSheet.create({
     listContainer: { paddingBottom: 20, paddingHorizontal: 20 },
     emptyState: { alignItems: 'center', paddingVertical: 40 },
     emptyText: { fontSize: 14, fontWeight: '600' },
+    demoBanner: {
+        backgroundColor: 'rgba(255,179,0,0.12)',
+        borderWidth: 1,
+        borderColor: 'rgba(255,179,0,0.35)',
+        borderRadius: 10,
+        paddingVertical: 8,
+        paddingHorizontal: 14,
+        marginBottom: 12,
+    },
+    demoBannerText: { fontSize: 12, fontWeight: '700', color: '#FFB300' },
     meterContainer: { width: '80%', height: 8, marginTop: 8, marginBottom: 8 },
     meterTrack: { flex: 1, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 4, overflow: 'hidden' },
     meterFill: { height: '100%', borderRadius: 4, minWidth: 4 },
