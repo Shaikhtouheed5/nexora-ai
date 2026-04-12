@@ -194,6 +194,7 @@ def _default_explanation(flags: list[str], content_type: str) -> str:
         "suspicious_url_pattern": "matches known malicious URL patterns",
         "excessive_subdomains": "has an unusually high number of subdomains",
         "at_sign_in_url": "contains @ in URL (common phishing trick)",
+        "indian_brand_domain_spoof": "contains an Indian brand name in a non-official domain (likely spoofing)",
     }
     reasons = [readable.get(f, f) for f in flags[:3]]
     return f"This {content_type} " + ", ".join(reasons) + "."
