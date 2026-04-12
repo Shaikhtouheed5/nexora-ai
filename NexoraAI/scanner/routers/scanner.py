@@ -335,6 +335,8 @@ async def generate_scenarios(body: ScenarioRequest):
     import os, json, httpx
     from datetime import timezone as tz
 
+    CACHE_VERSION = "v2"  # bump this to invalidate all existing cached scenarios
+
     count = max(1, min(body.count, 20))
     difficulty = body.difficulty if body.difficulty in ("easy", "hard", "mixed") else "mixed"
     cache_key = f"scenarios_{count}_{difficulty}"
@@ -352,11 +354,16 @@ async def generate_scenarios(body: ScenarioRequest):
         )
         if cached_row.data:
             row = cached_row.data[0]
-            created = datetime.fromisoformat(row["created_at"].replace("Z", "+00:00"))
-            age_seconds = (datetime.now(tz.utc) - created).total_seconds()
-            if age_seconds < 3600:
-                logger.info(f"Serving cached scenarios ({int(age_seconds)}s old)")
-                return {"scenarios": json.loads(row["payload"]), "cached": True}
+            cached_payload = json.loads(row["payload"])
+            # Reject cache entries from older schema versions (missing red_flags/trust_signals)
+            if cached_payload.get("version") != CACHE_VERSION:
+                logger.info(f"Cache version mismatch (expected {CACHE_VERSION}) — regenerating")
+            else:
+                created = datetime.fromisoformat(row["created_at"].replace("Z", "+00:00"))
+                age_seconds = (datetime.now(tz.utc) - created).total_seconds()
+                if age_seconds < 3600:
+                    logger.info(f"Serving cached scenarios ({int(age_seconds)}s old)")
+                    return {"scenarios": cached_payload["scenarios"], "cached": True}
     except Exception as e:
         logger.warning(f"scenario_cache read failed: {e}")
 
@@ -430,7 +437,7 @@ Return exactly {count} items. Alternate between phishing and legitimate messages
         supabase.table("scenario_cache").insert({
             "id": str(uuid.uuid4()),
             "cache_key": cache_key,
-            "payload": json.dumps(scenarios),
+            "payload": json.dumps({"version": CACHE_VERSION, "scenarios": scenarios}),
             "created_at": datetime.now(tz.utc).isoformat(),
         }).execute()
     except Exception as e:
