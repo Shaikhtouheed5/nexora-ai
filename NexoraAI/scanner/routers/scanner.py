@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from datetime import datetime, timezone
 from typing import List
 from pydantic import BaseModel
+import asyncio
 import uuid
 
 from core.dependencies import get_current_user
@@ -359,11 +360,7 @@ async def generate_scenarios(body: ScenarioRequest):
     except Exception as e:
         logger.warning(f"scenario_cache read failed: {e}")
 
-    # ── 2. Call Gemini ──
-    gemini_key = os.environ.get("GEMINI_API_KEY", "")
-    if not gemini_key:
-        raise HTTPException(status_code=503, detail="GEMINI_API_KEY not configured")
-
+    # ── 2. Call Groq ──
     difficulty_hint = {
         "easy":  "Make phishing examples obvious with multiple clear red flags.",
         "hard":  "Make phishing examples very subtle and hard to detect.",
@@ -388,26 +385,34 @@ Make phishing examples realistic with actual tactics: fake OTP requests, UPI fra
 Make legitimate examples also realistic: real bank transaction alerts (with partial account numbers), actual OTP format, delivery notifications, recharge confirmations.
 Return exactly {count} items. Alternate between phishing and legitimate messages."""
 
+    groq_key = os.environ.get("GROQ_API_KEY", "")
+    if not groq_key:
+        raise HTTPException(status_code=503, detail="GROQ_API_KEY not configured")
+
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            resp = await client.post(
-                f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={gemini_key}",
-                json={"contents": [{"parts": [{"text": prompt}]}]},
-            )
-            resp.raise_for_status()
-            raw_text = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
-
-        # Strip markdown code fences if present
-        clean = raw_text.strip()
-        if clean.startswith("```"):
-            clean = clean.split("```", 2)[1]
-            if clean.startswith("json"):
-                clean = clean[4:]
-            clean = clean.rsplit("```", 1)[0]
-        scenarios = json.loads(clean.strip())
-
+        from groq import Groq
+        groq_client = Groq(api_key=groq_key)
+        completion = groq_client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7,
+        )
+        raw_text = completion.choices[0].message.content
     except Exception as e:
-        logger.error(f"Gemini scenario generation failed: {e}")
+        logger.error(f"Groq scenario generation failed: {e}")
+        raise HTTPException(status_code=502, detail=f"AI generation failed: {str(e)}")
+
+    # Strip markdown code fences if present
+    clean = raw_text.strip()
+    if clean.startswith("```"):
+        clean = clean.split("```", 2)[1]
+        if clean.startswith("json"):
+            clean = clean[4:]
+        clean = clean.rsplit("```", 1)[0]
+    try:
+        scenarios = json.loads(clean.strip())
+    except Exception as e:
+        logger.error(f"Groq scenario JSON parse failed: {e}")
         raise HTTPException(status_code=502, detail=f"AI generation failed: {str(e)}")
 
     # ── 3. Cache result ──
