@@ -238,7 +238,7 @@ async def scan_image_endpoint(
                 raise ValueError("GEMINI_API_KEY not set")
             async with _httpx.AsyncClient(timeout=30) as client:
                 resp = await client.post(
-                    f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_key}",
+                    f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={gemini_key}",
                     json={
                         "contents": [{
                             "parts": [
@@ -391,7 +391,7 @@ Return exactly {count} items. Alternate between phishing and legitimate messages
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(
-                f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_key}",
+                f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={gemini_key}",
                 json={"contents": [{"parts": [{"text": prompt}]}]},
             )
             resp.raise_for_status()
