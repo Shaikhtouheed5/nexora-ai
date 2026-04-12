@@ -14,13 +14,25 @@
         },
         "preview": {
             "distribution": "internal",
+            "prebuildCommand": "npx expo prebuild --platform android --clean",
             "android": {
                 "buildType": "apk"
+            },
+            "env": {
+                "EXPO_PUBLIC_SUPABASE_URL": "https://oyvyeutjidgafipmgixz.supabase.co",
+                "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95dnlldXRqaWRnYWZpcG1naXh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxNTEzNTUsImV4cCI6MjA5MDcyNzM1NX0.xrkl4iRMc7kjfOkPIZr6xF06izPr-0ysqaruAOP7kwg",
+                "EXPO_PUBLIC_SCANNER_API_URL": "https://nexora-scanner.onrender.com"
             }
         },
         "production": {
+            "prebuildCommand": "npx expo prebuild --platform android --clean",
             "android": {
                 "buildType": "apk"
+            },
+            "env": {
+                "EXPO_PUBLIC_SUPABASE_URL": "https://oyvyeutjidgafipmgixz.supabase.co",
+                "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95dnlldXRqaWRnYWZpcG1naXh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxNTEzNTUsImV4cCI6MjA5MDcyNzM1NX0.xrkl4iRMc7kjfOkPIZr6xF06izPr-0ysqaruAOP7kwg",
+                "EXPO_PUBLIC_SCANNER_API_URL": "https://nexora-scanner.onrender.com"
             }
         }
     },

@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "NexoraAI",
-    "slug": "nexoraai",
+    "slug": "nexora",
     "version": "1.0.0",
     "scheme": "nexoraai",
     "orientation": "portrait",
@@ -73,9 +73,9 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "33e74d1b-bf3b-409c-805a-122fcdc81e52"
+        "projectId": "a72901f1-d70a-4c35-821c-3607a22d4422"
       }
     },
-    "owner": "toxicc05"
+    "owner": "toxiccc05s-organization"
   }
 }
