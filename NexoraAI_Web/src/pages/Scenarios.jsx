@@ -19,6 +19,7 @@ async function fetchScenarios(count = 6, difficulty = 'mixed') {
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
+  console.log('[Scenarios] raw API response:', JSON.stringify(data, null, 2));
   return data.scenarios || [];
 }
 
@@ -159,6 +160,7 @@ export default function Scenarios({ user, profile, onLogout, refreshProfile }) {
   }
 
   // ── Main quiz ────────────────────────────────────────────────────────────────
+  console.log(`[Scenarios] current scenario (index ${current}):`, JSON.stringify(scenario, null, 2));
   return (
     <div className="app-layout">
       <Sidebar user={user} profile={profile} onLogout={onLogout} />
