@@ -1,7 +1,7 @@
 import * as BackgroundFetch from 'expo-background-fetch';
 import * as TaskManager from 'expo-task-manager';
 import * as Notifications from 'expo-notifications';
-import { api } from '../lib/api';
+import api from '../lib/api';
 import { getAllSMS } from './smsInbox';
 
 const BACKGROUND_SCAN_TASK = 'background-sms-scan';

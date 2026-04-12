@@ -7,7 +7,7 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS, SHADOWS } from '../constants/theme';
-import { api, normalizeScanResult } from '../lib/api';
+import api, { normalizeScanResult } from '../lib/api';
 import { scanImage } from '../utils/scanImage';
 import { apiCall } from '../utils/api';
 import { awardXP, awardBadge, XP_RULES } from '../lib/gamificationService';

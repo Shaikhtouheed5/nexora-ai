@@ -6,7 +6,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Trophy, Medal, Award, User, Crown } from 'lucide-react-native';
-import { api } from '../lib/api';
+import api from '../lib/api';
 import { useI18n } from '../lib/i18n';
 import { useTheme } from '../lib/ThemeContext';
 import { COLORS, SHADOWS } from '../constants/theme';

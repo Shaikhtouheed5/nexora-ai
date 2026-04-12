@@ -6,7 +6,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS } from '../constants/theme';
-import { api, normalizeScanResult } from '../lib/api';
+import api, { normalizeScanResult } from '../lib/api';
 import { getAllSMS } from '../services/smsInbox';
 import { requestPermission as requestSmsNativePermission, startListening } from '../hooks/useSmsScanner';
 

@@ -7,7 +7,7 @@ import {
 import { X, ShieldCheck } from 'lucide-react-native';
 import { useI18n } from '../lib/i18n';
 import { COLORS, SHADOWS, STATUS_CONFIG } from '../constants/theme';
-import { api } from '../lib/api';
+import api from '../lib/api';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 

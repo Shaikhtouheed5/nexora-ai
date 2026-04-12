@@ -6,7 +6,7 @@ import {
 import * as Speech from 'expo-speech';
 import { supabase } from '../lib/supabase.js';
 import { useI18n } from '../lib/i18n';
-import { api } from '../lib/api';
+import api from '../lib/api';
 import { COLORS, SHADOWS } from '../constants/theme';
 
 // Language codes match i18n.js exactly (2-letter codes)

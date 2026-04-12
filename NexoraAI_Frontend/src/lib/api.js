@@ -146,7 +146,7 @@ export const normalizeScanResult = (raw) => {
   return { riskLevel, score, reasons, explanation };
 };
 
-export const api = {
+const api = {
     // Generic Helpers
     async get(endpoint, options = {}) {
         const token = await getToken();
@@ -471,3 +471,5 @@ export const api = {
         return res.json();
     },
 };
+
+export default api;

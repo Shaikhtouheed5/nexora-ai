@@ -5,7 +5,7 @@ import {
     Dimensions, Alert
 } from 'react-native';
 import { COLORS, SHADOWS } from '../constants/theme';
-import { api } from '../lib/api';
+import api from '../lib/api';
 import { useI18n } from '../lib/i18n';
 import ScoreRing from '../components/ScoreRing';
 import GlassCard from '../components/GlassCard';
