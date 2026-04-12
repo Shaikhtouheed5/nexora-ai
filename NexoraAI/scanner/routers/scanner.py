@@ -376,10 +376,19 @@ Return ONLY a valid JSON array, no markdown, no explanation outside the JSON:
     "sender": "string",
     "message": "string",
     "isPhishing": true,
-    "explanation": "string explaining why it is or isn't phishing",
+    "explanation": "string explaining clearly why it is or isn't phishing",
+    "red_flags": ["list of specific words or phrases from the message that are suspicious — empty list if legitimate"],
+    "trust_signals": ["list of specific words or phrases from the message that indicate it is legitimate — empty list if phishing"],
     "difficulty": "easy|medium|hard"
   }}
 ]
+
+Rules for red_flags and trust_signals:
+- Only include exact words or short phrases that actually appear in the message text.
+- red_flags examples: urgent language ("immediate action", "account suspended"), suspicious links, requests for OTP/password/Aadhaar, prize/lottery claims, unrecognised sender IDs.
+- trust_signals examples: partial account numbers ("XXXX1234"), known sender IDs ("SBI-ALERTS"), transaction IDs, standard bank notification formats, delivery confirmation codes.
+- For phishing messages: populate red_flags, leave trust_signals as [].
+- For legitimate messages: populate trust_signals, leave red_flags as [].
 
 Make phishing examples realistic with actual tactics: fake OTP requests, UPI fraud, KYC expiry threats, lottery/prize scams, fake delivery links, account suspension threats.
 Make legitimate examples also realistic: real bank transaction alerts (with partial account numbers), actual OTP format, delivery notifications, recharge confirmations.

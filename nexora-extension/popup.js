@@ -80,7 +80,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         let coldStartTimer = null;
 
         try {
-            const { token, scanCache } = await chrome.storage.local.get(['token', 'scanCache']);
+            // Always fetch a fresh (auto-refreshed) token from Supabase first.
+            // Falls back to chrome.storage.local only if getSession() returns null.
+            let token;
+            const { data: sessionData } = await supabaseClient.auth.getSession();
+            if (sessionData?.session?.access_token) {
+                token = sessionData.session.access_token;
+                // Keep storage in sync so other reads stay current
+                await chrome.storage.local.set({ token });
+            } else {
+                const stored = await chrome.storage.local.get(['token']);
+                token = stored.token;
+            }
+
+            if (!token) {
+                badge.textContent         = 'Not logged in';
+                riskScoreText.textContent = '';
+                riskFactors.innerHTML     = '<div class="risk-item" style="color: var(--malicious);">Please log in to scan messages.</div>';
+                scanBtn.disabled = false;
+                return;
+            }
+
+            const { scanCache } = await chrome.storage.local.get(['scanCache']);
             const cache    = scanCache || {};
             const cacheKey = text;
 
