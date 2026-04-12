@@ -67,7 +67,7 @@ export const apiCall = async (endpoint, method = 'GET', body = null) => {
     const parsed = JSON.parse(text);
 
     // Normalize image scan response shape
-    if (endpoint.includes('/api/scan-image')) {
+    if (endpoint.includes('/scan/image')) {
       return normalizeImageScanResponse(parsed);
     }
 

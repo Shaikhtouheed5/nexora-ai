@@ -1,7 +1,7 @@
 /**
  * scanImage.js — Image OCR utility
  *
- * Flow: Image URI → compress to 800px JPEG → FileSystem base64 → POST /api/scan-image
+ * Flow: Image URI → compress to 800px JPEG → FileSystem base64 → POST /scan/image
  *       → backend calls Google Vision → returns { text: string }
  *
  * Google Vision API key stays on backend. Never exposed to frontend.
@@ -39,7 +39,7 @@ export const scanImage = async (uri) => {
 
     // Step 3: POST to backend — backend calls Google Vision
     console.log('🌐 Calling backend scan...');
-    const result = await apiCall('/api/scan-image', 'POST', { image: base64 });
+    const result = await apiCall('/scan/image', 'POST', { image: base64 });
 
     const text = result.text ?? '';
     console.log('✅ OCR Text:', text.slice(0, 100));

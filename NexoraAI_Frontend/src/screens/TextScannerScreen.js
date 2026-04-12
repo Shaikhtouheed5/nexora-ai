@@ -133,7 +133,7 @@ export default function TextScannerScreen({ user }) {
   const runDiagnosticTest = async () => {
     setCameraScanning(true);
     try {
-      const result = await apiCall('/api/scan-image', 'POST', { image: 'test' });
+      const result = await apiCall('/scan/image', 'POST', { image: 'test' });
       console.log('🧪 TEST RESULT:', result);
       Alert.alert('Diagnostic', `Backend responded:\n${JSON.stringify(result).slice(0, 200)}`);
     } catch (e) {
@@ -157,13 +157,20 @@ export default function TextScannerScreen({ user }) {
       );
       return;
     }
-    const result = await ImagePicker.launchCameraAsync({
+    const pickerResult = await ImagePicker.launchCameraAsync({
       quality: 0.8,
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      base64: false, // we read base64 via FileSystem, not from picker
     });
-    if (!result.canceled && result.assets?.[0]?.uri) {
-      await performImageScan(result.assets[0].uri);
+    if (pickerResult.canceled) return;
+    // Android 16: assets array may exist at top level or nested differently
+    const asset = pickerResult.assets?.[0] ?? pickerResult;
+    const uri = asset?.uri ?? null;
+    if (!uri) {
+      Alert.alert('Camera Error', 'Could not get image from camera. Please try again.');
+      return;
     }
+    await performImageScan(uri);
   };
 
   const launchGallery = async () => {
@@ -179,13 +186,19 @@ export default function TextScannerScreen({ user }) {
       );
       return;
     }
-    const result = await ImagePicker.launchImageLibraryAsync({
+    const pickerResult = await ImagePicker.launchImageLibraryAsync({
       quality: 0.8,
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      base64: false,
     });
-    if (!result.canceled && result.assets?.[0]?.uri) {
-      await performImageScan(result.assets[0].uri);
+    if (pickerResult.canceled) return;
+    const asset = pickerResult.assets?.[0] ?? pickerResult;
+    const uri = asset?.uri ?? null;
+    if (!uri) {
+      Alert.alert('Gallery Error', 'Could not get image from gallery. Please try again.');
+      return;
     }
+    await performImageScan(uri);
   };
 
   const getRiskConfig = (riskLevel) =>

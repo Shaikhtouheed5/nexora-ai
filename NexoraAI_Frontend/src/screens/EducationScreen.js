@@ -50,12 +50,13 @@ export default function EducationScreen({ userId }) {
         setLoadingAcademy(true);
         try {
             const lessonsData = await api.getLessons(lang);
+            console.log('[Academy] getLessons response:', JSON.stringify(lessonsData)?.slice(0, 300));
             setFetchedLessons(Array.isArray(lessonsData) ? lessonsData : []);
 
             const activityRes = await api.getActivity();
             setActivityData(Array.isArray(activityRes) ? activityRes : []);
         } catch (e) {
-            console.log('Academy retrieval failed:', e);
+            console.error('[Academy] retrieval failed:', e.message);
         }
         setLoadingAcademy(false);
     };
@@ -77,15 +78,19 @@ export default function EducationScreen({ userId }) {
         setLoading(true);
         try {
             const res = await api.getDailyQuiz(lang);
-            setQuizData(res.questions || []);
+            console.log('[Quiz] getDailyQuiz response:', JSON.stringify(res)?.slice(0, 300));
+            if (!res || !Array.isArray(res.questions) || res.questions.length === 0) {
+                throw new Error('No questions returned from server. Response: ' + JSON.stringify(res)?.slice(0, 200));
+            }
+            setQuizData(res.questions);
             setQuizId(res.id || null);
             setCurrentQuestionIndex(0);
             setUserAnswers([]);
             setQuizResult(null);
             setView('quiz');
         } catch (e) {
-            console.log('Quiz init error:', e);
-            Alert.alert(t('connection_error'), t('quiz_load_error'));
+            console.error('[Quiz] init error:', e.message);
+            Alert.alert(t('connection_error'), e.message || t('quiz_load_error'));
         }
         setLoading(false);
     };

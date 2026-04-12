@@ -243,7 +243,7 @@ export const api = {
      * Returns raw backend response — call normalizeScanResult() on the result.
      */
     async scanText(text) {
-        return apiCall('/scan/text', 'POST', { content: text, type: 'sms', language: 'en' });
+        return apiCall('/scan/text', 'POST', { text });
     },
 
     /**
@@ -261,8 +261,14 @@ export const api = {
     async getDailyQuiz(lang = 'en') {
         const token = await getToken();
         const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-        const res = await fetch(`${EDU_API_BASE}/quiz/daily?lang=${lang}`, { headers });
-        if (!res.ok) throw new Error('Failed to fetch daily quiz');
+        const url = `${EDU_API_BASE}/quiz/daily?lang=${lang}`;
+        console.log('[getDailyQuiz] fetching:', url);
+        const res = await fetch(url, { headers });
+        if (!res.ok) {
+            const body = await res.text().catch(() => '');
+            console.error(`[getDailyQuiz] HTTP ${res.status}:`, body.slice(0, 200));
+            throw new Error('Failed to fetch daily quiz');
+        }
         return res.json();
     },
 
@@ -426,8 +432,14 @@ export const api = {
     async getLessons(lang = 'en') {
         const token = await getToken();
         const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-        const res = await fetch(`${EDU_API_BASE}/lessons?lang=${lang}`, { headers });
-        if (!res.ok) return [];
+        const url = `${EDU_API_BASE}/lessons?lang=${lang}`;
+        console.log('[getLessons] fetching:', url);
+        const res = await fetch(url, { headers });
+        if (!res.ok) {
+            const body = await res.text().catch(() => '');
+            console.error(`[getLessons] HTTP ${res.status}:`, body.slice(0, 200));
+            return [];
+        }
         return res.json();
     },
 

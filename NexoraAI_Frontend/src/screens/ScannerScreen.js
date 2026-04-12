@@ -4,7 +4,7 @@ import {
     TouchableOpacity, ActivityIndicator, Alert,
     Dimensions, RefreshControl, Image, Animated, Easing,
     Modal, TextInput, KeyboardAvoidingView, Platform,
-    Linking,
+    Linking, AppState,
 } from 'react-native';
 import { requestSmsPermissions } from '../hooks/useSmsPermission';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -94,9 +94,30 @@ export default function ScannerScreen() {
     const pulseAnim = useRef(new Animated.Value(1)).current;
 
     useEffect(() => {
-        // Request SMS permissions on first mount
+        // Request SMS permissions on mount (required for Android 13+/16)
         requestSmsPermissions().then(granted => {
-            if (!granted) console.log('[ScannerScreen] SMS permissions not granted');
+            if (!granted) {
+                console.warn('[ScannerScreen] SMS permissions not granted');
+                Alert.alert(
+                    'SMS Permission Required',
+                    'NexoraAI needs SMS access to scan your messages for phishing threats.\n\nGo to Settings → Apps → NexoraAI → Permissions → SMS to enable it.',
+                    [
+                        { text: 'Open Settings', onPress: () => Linking.openSettings() },
+                        { text: 'Skip', style: 'cancel' },
+                    ]
+                );
+            }
+        });
+
+        // Re-check SMS permission when user returns from Settings
+        const appStateSubscription = AppState.addEventListener('change', async (nextState) => {
+            if (nextState === 'active') {
+                const granted = await requestSmsPermissions();
+                if (granted) {
+                    console.log('[ScannerScreen] SMS permission granted after returning from Settings');
+                    scanAllMessages();
+                }
+            }
         });
 
         scanAllMessages();
@@ -108,7 +129,10 @@ export default function ScannerScreen() {
             await handleNewIncomingMessage(text);
         });
 
-        return () => smsService.stop();
+        return () => {
+            appStateSubscription.remove();
+            smsService.stop();
+        };
     }, [lang]);
 
     const loadAdvice = async () => {
