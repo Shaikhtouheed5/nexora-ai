@@ -10,8 +10,17 @@ import {
 
 // ── Video area sub-components ─────────────────────────────────────────────────
 
-function VideoReady({ lesson }) {
-  // Real video: render <video> element
+const VIDEO_MAP = {
+  'day-1': '/videos/introduction-to-phishing.mp4',
+  'introduction-to-phishing': '/videos/introduction-to-phishing.mp4',
+  'day-2': '/videos/password-security.mp4',
+  'password-security': '/videos/password-security.mp4',
+  'day-3': '/videos/social-engineering.mp4',
+  'social-engineering': '/videos/social-engineering.mp4',
+};
+
+function VideoReady({ lesson, lessonId }) {
+  // Real video from backend: render <video> element
   if (lesson.video_url && !lesson.video_url.includes('placeholder')) {
     return (
       <video
@@ -19,6 +28,25 @@ function VideoReady({ lesson }) {
         controls
         style={{ width: '100%', display: 'block', maxHeight: 480, objectFit: 'contain', background: '#000' }}
       />
+    );
+  }
+
+  // Derive videoSrc from VIDEO_MAP using lessonId or lesson title slug
+  const titleSlug = lesson.title
+    ? lesson.title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+    : '';
+  const videoSrc = VIDEO_MAP[lessonId] || VIDEO_MAP[titleSlug] || null;
+
+  if (videoSrc) {
+    return (
+      <video
+        controls
+        width="100%"
+        style={{ borderRadius: '8px', maxHeight: '400px', background: '#000', display: 'block' }}
+      >
+        <source src={videoSrc} type="video/mp4" />
+        Your browser does not support the video tag.
+      </video>
     );
   }
 
@@ -250,7 +278,7 @@ export default function LessonView({ user, profile, onLogout, refreshProfile }) 
           {/* ── Video Area ── */}
           <div className="card-neon" style={{ marginBottom: 32, padding: 0, overflow: 'hidden' }}>
             {(videoStatus === 'ready' || videoStatus === 'none') && (
-              <VideoReady lesson={lesson} />
+              <VideoReady lesson={lesson} lessonId={lessonId} />
             )}
             {(videoStatus === 'pending' || videoStatus === 'generating') && (
               <VideoGenerating />
