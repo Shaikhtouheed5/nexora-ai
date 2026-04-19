@@ -94,42 +94,16 @@ export default function ScannerScreen() {
     const pulseAnim = useRef(new Animated.Value(1)).current;
 
     useEffect(() => {
-        const initSms = async () => {
-            const granted = await requestSmsPermissions();
-            if (granted) {
-                scanAllMessages();
-            } else {
-                Alert.alert(
-                    'SMS Permission Required',
-                    'NexoraAI needs SMS access to scan your messages.\n\nGo to Settings → Apps → NexoraAI → Permissions → SMS to enable it.',
-                    [
-                        { text: 'Open Settings', onPress: () => Linking.openSettings() },
-                        { text: 'Skip', style: 'cancel' },
-                    ]
-                );
-            }
-        };
-
-        initSms();
+        scanAllMessages();
         loadAdvice();
 
-        // Re-check permission when user returns from Settings
-        const appStateSubscription = AppState.addEventListener('change', async (nextState) => {
-            if (nextState === 'active') {
-                const granted = await requestSmsPermissions();
-                if (granted) scanAllMessages();
-            }
-        });
-
-        // Real-time incoming SMS via native BroadcastReceiver or polling fallback
+        // Robust event-driven Hybrid Monitoring
         smsService.start(async (text) => {
+            console.log('New message detected via service:', text);
             await handleNewIncomingMessage(text);
         });
 
-        return () => {
-            appStateSubscription.remove();
-            smsService.stop();
-        };
+        return () => smsService.stop();
     }, [lang]);
 
     const loadAdvice = async () => {
@@ -261,6 +235,8 @@ export default function ScannerScreen() {
     };
 
     const triggerThreatNotification = async (threat) => {
+        if (Platform.OS === 'web') return; // Cannot schedule native notifications on web
+
         await Notifications.scheduleNotificationAsync({
             content: {
                 title: "⚠️ URGENT SECURITY ALERT",

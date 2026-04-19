@@ -1,8 +1,6 @@
-import { Platform, NativeModules, NativeEventEmitter } from 'react-native';
+import { Platform } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { getAllSMS } from './smsInbox';
-
-const { SmsModule: NativeSmsModule } = NativeModules;
 
 class SMSService {
     constructor() {
@@ -10,62 +8,70 @@ class SMSService {
         this.lastMessageId = '';
         this.onNewMessage = null; // callback: (text) => void
         this.monitorInterval = null;
-        this.nativeSubscription = null;
         this.isRunning = false;
     }
 
     /**
      * Start monitoring for new messages.
-     * Strategy priority:
-     * 1. Native BroadcastReceiver (NativeSmsModule — EAS bare build only)
-     * 2. Clipboard polling (Expo Go fallback)
-     * 3. Inbox top-message polling (lightweight change detection)
+     * Strategy:
+     * 1. Clipboard polling (Fallback for Expo Go)
+     * 2. Inbox "Top Message" polling (Lightweight check for new IDs)
      */
-    start(onNewMessage) {
+    async start(onNewMessage) {
         if (this.isRunning) return;
+
+        // Check for Android SMS permissions first
+        const hasPermission = await this.verifyPermissions();
+        if (!hasPermission) {
+            console.log('SMS Service cannot start: Permission denied');
+            return;
+        }
+
         this.onNewMessage = onNewMessage;
         this.isRunning = true;
+        this.seenIds = new Set();
 
-        // Initialize last message ID to avoid scanning old history on start
-        this.initLastMessage();
+        // 1. Initialize last message state FIRST to create a baseline
+        await this.initLastMessage();
 
-        // Prefer native BroadcastReceiver over polling when available
-        if (Platform.OS === 'android' && NativeSmsModule) {
+        // 2. Start the loop
+        this.monitorInterval = setInterval(async () => {
+            if (!this.isRunning) return;
             try {
-                const emitter = new NativeEventEmitter(NativeSmsModule);
-                this.nativeSubscription = emitter.addListener('onSmsReceived', ({ sender, body }) => {
-                    console.log('📬 New SMS via native BroadcastReceiver from:', sender);
-                    if (this.onNewMessage && body) {
-                        this.onNewMessage(body);
-                    }
-                });
-                console.log('📱 SMS Service started (Native BroadcastReceiver)');
-            } catch (e) {
-                console.warn('[SMSService] Native listener failed, falling back to polling:', e);
-                this._startPolling();
+                await this.checkClipboard();
+                await this.checkInbox();
+            } catch (err) {
+                console.log('Monitor loop error:', err);
             }
-        } else {
-            this._startPolling();
-        }
+        }, 3000); // 3 seconds is a safe sweet spot for battery vs speed
+
+        console.log('SMS Service started (Verified Permissions & Hybrid Tracking)');
     }
 
-    _startPolling() {
-        this.monitorInterval = setInterval(async () => {
-            await this.checkClipboard();
-            await this.checkInbox();
-        }, 5000); // 5 second check — balance between speed and battery
-        console.log('📱 SMS Service started (Hybrid Polling fallback)');
+    async verifyPermissions() {
+        if (Platform.OS !== 'android') return true; // iOS/Web has different handling
+        try {
+            const { PermissionsAndroid } = require('react-native');
+            const granted = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.READ_SMS);
+            return granted;
+        } catch (e) {
+            return false;
+        }
     }
 
     async initLastMessage() {
         try {
             const { messages } = await getAllSMS();
             if (messages && messages.length > 0) {
-                this.lastMessageId = messages[0].id;
-                this.lastClipText = messages[0].body;
+                // Initialize seen IDs with current head of inbox
+                // We capture more than just the first to handle potentially busy inboxes on launch
+                messages.slice(0, 15).forEach(msg => this.seenIds.add(msg.id));
+                console.log(`SMS Listener initialized with ${this.seenIds.size} baseline IDs`);
+            } else {
+                console.log('SMS Inbox is empty, starting with clean set');
             }
         } catch (e) {
-            console.log('Failed to init last message:', e);
+            console.log('Failed to init last message baseline:', e);
         }
     }
 
@@ -74,18 +80,18 @@ class SMSService {
             const text = await Clipboard.getStringAsync();
             if (
                 text &&
-                text.length > 15 &&
-                text.length < 600 &&
+                text.length > 20 && // Increased min length to avoid small snippets
+                text.length < 1000 &&
                 text !== this.lastClipText
             ) {
                 this.lastClipText = text;
-                console.log('📋 New message detected via clipboard');
+                console.log('New content detected via clipboard');
                 if (this.onNewMessage) {
                     this.onNewMessage(text);
                 }
             }
         } catch (e) {
-            // Clipboard access may be restricted
+            // Permission restricted or clipboard blocked
         }
     }
 
@@ -94,16 +100,33 @@ class SMSService {
 
         try {
             const { messages, isDemo } = await getAllSMS();
-            if (isDemo) return; // Don't poll demo data for changes
+            if (isDemo || !messages || messages.length === 0) return;
 
-            if (messages && messages.length > 0) {
-                const newest = messages[0];
-                if (newest.id !== this.lastMessageId) {
-                    console.log('📩 New message detected in inbox:', newest.id);
-                    this.lastMessageId = newest.id;
-                    this.lastClipText = newest.body;
+            // Find all new messages by checking against our seen Set
+            const newMessages = [];
+            for (const msg of messages) {
+                if (this.seenIds.has(msg.id)) {
+                    break;
+                }
+                newMessages.push(msg);
+            }
+
+            if (newMessages.length > 0) {
+                console.log(`Processing ${newMessages.length} new messages from inbox`);
+
+                // Fire callbacks for all new messages (oldest first)
+                for (let i = newMessages.length - 1; i >= 0; i--) {
+                    const msg = newMessages[i];
+                    this.seenIds.add(msg.id);
+
+                    // Maintain historical set size (last 200 IDs)
+                    if (this.seenIds.size > 200) {
+                        const firstItem = this.seenIds.values().next().value;
+                        this.seenIds.delete(firstItem);
+                    }
+
                     if (this.onNewMessage) {
-                        this.onNewMessage(newest.body);
+                        this.onNewMessage(msg.body);
                     }
                 }
             }
@@ -123,22 +146,15 @@ class SMSService {
     }
 
     /**
-     * Stop monitoring and clean up all subscriptions.
+     * Stop monitoring.
      */
     stop() {
         this.isRunning = false;
-
-        if (this.nativeSubscription) {
-            this.nativeSubscription.remove();
-            this.nativeSubscription = null;
-        }
-
         if (this.monitorInterval) {
             clearInterval(this.monitorInterval);
             this.monitorInterval = null;
         }
-
-        console.log('📱 SMS Service stopped');
+        console.log('SMS Service stopped');
     }
 }
 

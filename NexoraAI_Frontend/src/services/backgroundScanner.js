@@ -1,6 +1,7 @@
 import * as BackgroundFetch from 'expo-background-fetch';
 import * as TaskManager from 'expo-task-manager';
 import * as Notifications from 'expo-notifications';
+import { Platform } from 'react-native';
 import api from '../lib/api';
 import { getAllSMS } from './smsInbox';
 
@@ -50,6 +51,7 @@ TaskManager.defineTask(BACKGROUND_SCAN_TASK, async () => {
 
 // 2. Registration function
 export async function registerBackgroundScanner() {
+    if (Platform.OS === 'web') return;
     try {
         const isRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_SCAN_TASK);
         if (isRegistered) {
