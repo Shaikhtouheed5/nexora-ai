@@ -41,7 +41,31 @@ URGENT_PHRASES = [
 
 SUSPICIOUS_TLDS = [".xyz", ".top", ".club", ".buzz", ".tk", ".ml", ".ga", ".cf", ".gq", ".wang"]
 
-# Whitelisted sender patterns (Indian banks, telecoms, govt services)
+# Patterns that confirm a message is a LEGITIMATE OTP / alert — checked before everything else
+LEGITIMATE_OTP_PATTERNS = [
+    re.compile(r'do not share.*otp',           re.I),
+    re.compile(r'never share.*otp',            re.I),
+    re.compile(r'do not disclose.*otp',        re.I),
+    re.compile(r'otp.*do not share',           re.I),
+    re.compile(r'valid for \d+ min',           re.I),
+    re.compile(r'report.*fraud.*\d{10}',       re.I),
+    re.compile(r'if not done by you',          re.I),
+    re.compile(r'if not you.*report',          re.I),
+    re.compile(r'digilocker',                  re.I),
+    re.compile(r'uidai',                       re.I),
+    re.compile(r'gov\.in',                     re.I),
+    re.compile(r'npci\.org',                   re.I),
+    re.compile(r'BLOCKUPI.*\d{10}',            re.I),  # legitimate bank block-UPI SMS
+]
+
+# Non-trusted http:// URL — anything that's NOT a known-safe domain
+_SUSPICIOUS_HTTP = re.compile(
+    r'http://(?!(?:www\.)?(sbi\.co\.in|hdfcbank|icicibank|axisbank|canara|pnb|kotakbank|'
+    r'paytm|phonepe|amazon|flipkart|irctc|uidai|npci|digilocker|gov\.in))',
+    re.I,
+)
+
+# Whitelisted sender patterns (TRAI-registered Indian business senders)
 WHITELISTED_SENDER_PATTERNS = [
     r"^[A-Z]{2}-KOTAKB",   # Kotak Bank
     r"^[A-Z]{2}-HDFCBK",   # HDFC Bank
@@ -65,7 +89,23 @@ WHITELISTED_SENDER_PATTERNS = [
     r"^[A-Z]{2}-SWIGGY",   # Swiggy
     r"^[A-Z]{2}-ZOMATO",   # Zomato
     r"^[A-Z]{2}-IRCTCW",   # IRCTC
-    r"^Airtel",             # Airtel with different format
+    r"^[A-Z]{2}-RRLACC",   # Jiomart / Reliance Retail
+    r"^[A-Z]{2}-JIOINF",   # Jio Infoline
+    r"^[A-Z]{2}-NUTRAB",   # NutraBay (legit ecommerce)
+    r"^[A-Z]{2}-DLVR",     # Delivery services
+    r"^Airtel",             # Airtel alternate format
+    # Generic TRAI-registered patterns: XX-XXXXBNk / BANK / INF / ACC
+    r"^[A-Z]{2}-[A-Z]{2,8}(BNK|BANK|INF|ACC)$",
+    # Specific senders reported as false-positive sources
+    r"^JM-RRLACC$",
+    r"^JM-JIOINF$",
+    r"^VM-CANBNK$",
+    r"^AX-CANBNK$",
+    r"^JK-CANBNK$",
+    r"^VA-CANBNK$",
+    r"^VA-PNBSMS$",
+    r"^CP-NUTRAB$",
+    r"^JD-DLVR$",
 ]
 
 # Transactional/Banking keywords (Indian specific) to reduce False Positives
@@ -221,6 +261,24 @@ class PhishClassifier:
         """
         Hybrid prediction: ML model + Heuristics + Sender Whitelisting.
         """
+        # -1. Legitimate OTP / transactional alert fast-path (runs FIRST)
+        #     If the message matches any known-legitimate OTP signal AND does not
+        #     contain a suspicious http:// URL, cap score at 0.25 and return Safe.
+        has_suspicious_http = bool(_SUSPICIOUS_HTTP.search(text))
+        is_legitimate_otp = any(p.search(text) for p in LEGITIMATE_OTP_PATTERNS)
+        if is_legitimate_otp and not has_suspicious_http:
+            return {
+                "classification": "Safe",
+                "confidence": 0.10,
+                "risk_level": "Low",
+                "ml_score": 0.0,
+                "heuristic_score": 0.0,
+                "risk_factors": [],
+                "needs_clarification": False,
+                "has_otp": True,
+                "legitimate_otp": True,
+            }
+
         # 0. Check sender whitelist
         sender_whitelisted = False
         if sender:

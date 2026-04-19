@@ -1,6 +1,6 @@
 {
-  "accuracy": 0.9834,
-  "spam_recall": 0.9296,
+  "accuracy": 0.9886,
+  "spam_recall": 0.9698,
   "model_type": "TF-IDF(trigram) + LogisticRegression(balanced)",
   "features": 20000,
   "ngram_range": [
@@ -9,5 +9,5 @@
   ],
   "augmented": true,
   "indian_data": true,
-  "train_size": 4819
+  "train_size": 4895
 }
