@@ -28,7 +28,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(scanner.router, prefix="")
+app.include_router(scanner.router, prefix="/scan")
 
 @app.get("/")
 async def root():
