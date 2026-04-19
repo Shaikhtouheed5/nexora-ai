@@ -315,7 +315,7 @@ def build_explanation(verdict: str, flags: list) -> str:
 
 # ── SECTION 9: MAIN CHECK FUNCTION ────────────────────────────────────────────
 
-def check(content: str, content_type: str, sender: str = "") -> Tuple[float, list]:
+def check(content: str, content_type: str, sender: str = "", debug: bool = False) -> Tuple[float, list]:
     """
     Analyse content for phishing/smishing signals.
 
@@ -323,20 +323,66 @@ def check(content: str, content_type: str, sender: str = "") -> Tuple[float, lis
         (confidence, flags)
         confidence — float 0.0–1.0
         flags      — list of signal names that fired
+
+    Args:
+        debug: When True, prints a step-by-step trace of the whitelist check
+               and all pattern matches. Safe to call in production with debug=False.
     """
+    def _dbg(msg: str) -> None:
+        if debug:
+            print(msg)
+
     if not content or not content.strip():
         return 0.0, []
 
     # ── Step 0: Whitelist ────────────────────────────────────────────────────
+    # Runs FIRST — before brand impersonation, credential checks, or any scoring.
     # If message looks like a legitimate transaction/OTP/delivery AND has no
     # credential-harvesting language → classify safe immediately.
-    safe_match = any(re.search(p, content, re.IGNORECASE) for p in ALL_SAFE_PATTERNS)
-    if safe_match:
-        has_cred_harvest = any(
-            re.search(p, content, re.IGNORECASE) for p in ALL_CREDENTIAL_PATTERNS
-        )
-        if not has_cred_harvest:
+    _dbg("\n" + "="*60)
+    _dbg("HEURISTICS DEBUG -- Step 0: Whitelist check")
+    _dbg(f"  Message : {content!r}")
+    _dbg(f"  Sender  : {sender!r}")
+    _dbg("="*60)
+    _dbg(f"\n[Step 0] Checking {len(ALL_SAFE_PATTERNS)} whitelist patterns...")
+
+    matched_safe_pattern = None
+    for i, p in enumerate(ALL_SAFE_PATTERNS):
+        m = re.search(p, content, re.IGNORECASE)
+        _dbg(f"  [{i:02d}] {'MATCH' if m else '    '} {p!r}")
+        if m and not matched_safe_pattern:
+            matched_safe_pattern = (i, p, m.group())
+
+    if matched_safe_pattern:
+        idx, pattern, matched_text = matched_safe_pattern
+        _dbg(f"\n  [HIT] Whitelist matched -- pattern [{idx}]: {pattern!r}")
+        _dbg(f"    Matched text: {matched_text!r}")
+        _dbg(f"\n[Step 0b] Checking {len(ALL_CREDENTIAL_PATTERNS)} credential-harvesting patterns...")
+        cred_match = None
+        for i, p in enumerate(ALL_CREDENTIAL_PATTERNS):
+            m = re.search(p, content, re.IGNORECASE)
+            _dbg(f"  [{i:02d}] {'MATCH' if m else '    '} {p!r}")
+            if m and not cred_match:
+                cred_match = (i, p, m.group())
+
+        if not cred_match:
+            _dbg("\n  [OK] No credential harvesting detected.")
+            _dbg("  -> Early return: confidence=0.02, flags=['legitimate_transaction']")
+            _dbg("  -> Brand impersonation check SKIPPED (whitelist returned early)")
+            _dbg("="*60 + "\n")
             return 0.02, ["legitimate_transaction"]
+        else:
+            idx2, pattern2, text2 = cred_match
+            _dbg(f"\n  [!!] Credential pattern [{idx2}] also matched: {text2!r}")
+            _dbg("  -> Whitelist overridden -- proceeding to full scoring.")
+    else:
+        _dbg("\n  [MISS] No whitelist pattern matched.")
+        _dbg("  -> Proceeding to full pattern scoring.")
+
+    _dbg("\n[Step 1] Pattern scoring (URL -> credentials -> prize -> urgency)...")
+    _dbg("[Step 2] Brand impersonation scoring runs AFTER Step 1.")
+    _dbg("[Step 3] Sender scoring.")
+    _dbg("[Step 4] Combination boosters.\n")
 
     # ── Step 1: Pattern scoring ──────────────────────────────────────────────
     confidence = 0.0
