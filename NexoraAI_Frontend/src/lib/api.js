@@ -94,6 +94,54 @@ export const apiCall = async (endpoint, method = 'GET', body = null) => {
     }
 };
 
+/**
+ * Normalize a raw backend scan result into a consistent shape for the UI.
+ * Backend returns { verdict, confidence, riskLevel, flags, explanation, score }
+ * UI expects { classification, confidence (0-1), body, sender, red_flags, ... }
+ */
+const _normalizeResult = (data, inputText = '', inputSender = '', inputDate = null) => {
+    // Map lowercase verdict → capitalized classification
+    const rawVerdict = (data.verdict || data.riskLevel || data.classification || '').toLowerCase();
+    let classification;
+    if (rawVerdict === 'malicious') classification = 'Malicious';
+    else if (rawVerdict === 'suspicious') classification = 'Suspicious';
+    else if (rawVerdict === 'safe') classification = 'Safe';
+    else classification = data.classification || 'Unknown';
+
+    // Normalize confidence to 0.0–1.0
+    let confidence = data.confidence != null ? Number(data.confidence) : null;
+    if (confidence == null) {
+        const score = data.score != null ? Number(data.score) : null;
+        confidence = score != null ? score / 100 : 0;
+    }
+    if (confidence > 1) confidence = confidence / 100; // guard against 0-100 scale
+    confidence = Math.min(1, Math.max(0, confidence));
+
+    // BUG 3: if backend says "safe" but confidence > 0.3, show as Suspicious
+    if (classification === 'Safe' && confidence > 0.3) {
+        classification = 'Suspicious';
+    }
+
+    const body = data.body || data.text || inputText || '';
+    const sender = data.sender || inputSender || '';
+
+    return {
+        ...data,
+        classification,
+        confidence,
+        risk_level: data.risk_level || data.riskLevel || (
+            classification === 'Malicious' ? 'high' :
+            classification === 'Suspicious' ? 'medium' : 'low'
+        ),
+        explanation: data.explanation || data.reason || '',
+        red_flags: data.flags || data.red_flags || data.redFlags || [],
+        sender,
+        body,
+        text: body,
+        date: data.date || inputDate || new Date().toISOString(),
+    };
+};
+
 // Caching Helpers
 const getCache = async () => {
     try {
@@ -245,9 +293,10 @@ const api = {
         let result;
         try { result = JSON.parse(raw); } catch { throw new Error('Server error: ' + raw.slice(0, 100)); }
 
-        // 2. Save to Cache
-        await saveToCache(cacheKey, result);
-        return result;
+        // 2. Normalize and save to Cache
+        const normalized = _normalizeResult(result, message, '');
+        await saveToCache(cacheKey, normalized);
+        return normalized;
     },
 
     /**
@@ -387,9 +436,17 @@ const api = {
             try { scanData = JSON.parse(raw); } catch { throw new Error('Server error: ' + raw.slice(0, 100)); }
             const newResults = scanData.results || [];
 
-            // Save new results to cache
-            for (const r of newResults) {
-                const key = r.body?.trim() || '';
+            // Normalize and save new results to cache
+            for (let i = 0; i < newResults.length; i++) {
+                const src = toScan[i] || {};
+                const r = _normalizeResult(
+                    newResults[i],
+                    src.body || src.text || '',
+                    src.sender || '',
+                    src.date || null,
+                );
+                if (src.id) r.id = src.id;
+                const key = (r.body || '').trim();
                 if (key) await saveToCache(key, r);
                 results.push(r);
             }

@@ -17,10 +17,12 @@ export default function AnalysisModal({ visible, result, onClose, onMarkSafe, ad
     const [loadingAdvice, setLoadingAdvice] = useState(false);
 
     useEffect(() => {
-        if (visible && result && result.classification !== 'Safe') {
+        const classification = result?.classification || result?.verdict || 'Unknown';
+        const body = result?.body || result?.text || '';
+        if (visible && result && classification !== 'Safe') {
             setLoadingAdvice(true);
             setDynamicAdvice(null);
-            api.getMessageAdvice(result.body, result.classification, lang)
+            api.getMessageAdvice(body, classification, lang)
                 .then(res => {
                     setDynamicAdvice(res && res.length > 0 ? res : null);
                     setLoadingAdvice(false);
@@ -37,7 +39,17 @@ export default function AnalysisModal({ visible, result, onClose, onMarkSafe, ad
 
     if (!result) return null;
 
-    const config = STATUS_CONFIG[result.classification] || STATUS_CONFIG.Safe;
+    // Normalize fields — backend may return verdict/riskLevel instead of classification
+    const classification = result.classification || result.verdict || 'Unknown';
+    const body = result.body || result.text || '';
+    const sender = result.sender || '';
+    const confidence = result.confidence != null
+        ? result.confidence
+        : (result.score != null ? result.score / 100 : 0);
+    const explanation = result.explanation || result.reason || '';
+    const redFlags = result.red_flags || result.flags || result.redFlags || [];
+
+    const config = STATUS_CONFIG[classification] || STATUS_CONFIG.Safe;
 
     return (
         <Modal
@@ -65,9 +77,9 @@ export default function AnalysisModal({ visible, result, onClose, onMarkSafe, ad
                                     {t(config.label).toUpperCase()}
                                 </Text>
                             </View>
-                            <Text style={styles.senderText}>{result.sender}</Text>
+                            <Text style={styles.senderText}>{sender}</Text>
                             <Text style={styles.timeText}>
-                                {new Date(result.date).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+                                {result.date ? new Date(result.date).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : ''}
                             </Text>
                         </View>
 
@@ -76,10 +88,10 @@ export default function AnalysisModal({ visible, result, onClose, onMarkSafe, ad
                             <Text style={styles.sectionTitle}>{t('neural_check')}</Text>
                             <View style={styles.progressContainer}>
                                 <View style={styles.progressBar}>
-                                    <View style={[styles.progressFill, { width: `${result.confidence * 100}%`, backgroundColor: config.color }]} />
+                                    <View style={[styles.progressFill, { width: `${confidence * 100}%`, backgroundColor: config.color }]} />
                                 </View>
                                 <Text style={[styles.scoreText, { color: config.color }]}>
-                                    {Math.round(result.confidence * 100)}% Match
+                                    {Math.round(confidence * 100)}% Match
                                 </Text>
                             </View>
                         </View>
@@ -88,7 +100,7 @@ export default function AnalysisModal({ visible, result, onClose, onMarkSafe, ad
                         <View style={styles.section}>
                             <Text style={styles.sectionTitle}>{t('decrypted_content')}</Text>
                             <View style={[styles.contentBox, { backgroundColor: COLORS.bgDark }]}>
-                                <Text style={styles.messageBody}>{result.body}</Text>
+                                <Text style={styles.messageBody}>{body}</Text>
                             </View>
                         </View>
 
@@ -126,7 +138,7 @@ export default function AnalysisModal({ visible, result, onClose, onMarkSafe, ad
                                 <View style={styles.analysisRow}>
                                     <View style={styles.analysisDot} />
                                     <Text style={styles.analysisText}>
-                                        {result.classification === 'Safe'
+                                        {classification === 'Safe'
                                             ? t('safe_analysis')
                                             : t('threat_analysis')}
                                     </Text>
@@ -144,7 +156,7 @@ export default function AnalysisModal({ visible, result, onClose, onMarkSafe, ad
                             </TouchableOpacity>
 
                             {/* Only show Mark Safe if not already safe */}
-                            {result.classification !== 'Safe' && (
+                            {classification !== 'Safe' && (
                                 <TouchableOpacity
                                     style={[styles.actionButton, { backgroundColor: config.color }]}
                                     onPress={() => {

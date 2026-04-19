@@ -10,7 +10,16 @@ import GlassCard from './GlassCard';
 export default function ResultCard({ result, onPress, onMarkSafe, onMarkMalicious }) {
     const { colors, isDark } = useTheme();
     const { t } = useI18n();
-    const config = STATUS_CONFIG[result.classification] || STATUS_CONFIG.Safe;
+
+    // Normalize fields — backend may return verdict/riskLevel instead of classification
+    const classification = result.classification || result.verdict || 'Unknown';
+    const body = result.body || result.text || '';
+    const sender = result.sender || '';
+    const confidence = result.confidence != null
+        ? result.confidence
+        : (result.score != null ? result.score / 100 : 0);
+
+    const config = STATUS_CONFIG[classification] || STATUS_CONFIG.Safe;
     const swipeableRef = useRef(null);
 
     const renderLeftActions = (progress, dragX) => {
@@ -54,8 +63,8 @@ export default function ResultCard({ result, onPress, onMarkSafe, onMarkMaliciou
     };
 
     const getIcon = () => {
-        if (result.classification === 'Safe') return <ShieldCheck size={24} color={config.color} />;
-        if (result.classification === 'Malicious') return <ShieldAlert size={24} color={config.color} />;
+        if (classification === 'Safe') return <ShieldCheck size={24} color={config.color} />;
+        if (classification === 'Malicious') return <ShieldAlert size={24} color={config.color} />;
         return <AlertTriangle size={24} color={config.color} />;
     };
 
@@ -82,7 +91,7 @@ export default function ResultCard({ result, onPress, onMarkSafe, onMarkMaliciou
                             {getIcon()}
                         </View>
                         <View style={styles.headerText}>
-                            <Text style={[styles.sender, { color: colors.textPrimary }]}>{result.sender}</Text>
+                            <Text style={[styles.sender, { color: colors.textPrimary }]}>{sender}</Text>
                             <Text style={[styles.date, { color: colors.textSecondary }]}>{formatDate(result.date)}</Text>
                         </View>
                         <View style={[styles.badge, { backgroundColor: config.color + '20', borderColor: config.color }]}>
@@ -93,13 +102,13 @@ export default function ResultCard({ result, onPress, onMarkSafe, onMarkMaliciou
                     </View>
 
                     <Text numberOfLines={2} style={[styles.messagePreview, { color: colors.textSecondary }]}>
-                        {result.body}
+                        {body}
                     </Text>
 
-                    {result.classification !== 'Safe' && (
+                    {classification !== 'Safe' && (
                         <View style={[styles.footer, { borderTopColor: colors.glassBorder }]}>
                             <Text style={[styles.riskLabel, { color: config.color }]}>
-                                {t('risk_level')}: {(result.classification || '').toUpperCase()}
+                                {t('risk_level')}: {classification.toUpperCase()}
                             </Text>
                         </View>
                     )}
