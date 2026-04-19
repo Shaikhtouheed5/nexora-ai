@@ -133,7 +133,7 @@ export default function Dashboard({ user, profile, onLogout, refreshProfile }) {
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 11, color: 'var(--primary)', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>
-                  Continue Learning · Day {continueLesson.day_id}
+                  Continue Learning · Day {String(continueLesson.day_id).replace(/^day-?/i, '')}
                 </div>
                 <h2 style={{ fontSize: 22, fontWeight: 800, marginBottom: 4 }}>{continueLesson.title}</h2>
               </div>
@@ -241,7 +241,7 @@ export default function Dashboard({ user, profile, onLogout, refreshProfile }) {
                     {/* Title + day */}
                     <div>
                       <div style={{ fontSize: 11, color: 'var(--primary)', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>
-                        Day {lesson.day_id}
+                        Day {String(lesson.day_id).replace(/^day-?/i, '')}
                       </div>
                       <h3 style={{ fontSize: 17, fontWeight: 800, lineHeight: 1.3 }}>{lesson.title}</h3>
                     </div>

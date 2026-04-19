@@ -19,7 +19,7 @@ export default function Leaderboard({ user, profile, onLogout }) {
 
   useEffect(() => {
     fetchLeaderboard();
-  }, [tab]);
+  }, [tab, user?.id]);
 
   const fetchLeaderboard = async () => {
     setLoading(true);
@@ -42,18 +42,37 @@ export default function Leaderboard({ user, profile, onLogout }) {
       const { data, error } = await query;
       if (error) throw error;
 
-      const sorted = (data || []).map((u, i) => ({
+      let rows = (data || []).map(u => ({
         ...u,
-        rank: i + 1,
         xp: u.xp || 0,
         level: u.level || 1,
         levelName: u.level_name || 'Rookie',
         streak: u.streak || 0,
       }));
 
+      // Inject current user from profile if the view didn't include them
+      const inList = rows.some(e => e.uid === user?.id);
+      if (!inList && user && profile) {
+        rows = [
+          ...rows,
+          {
+            uid: user.id,
+            email: user.email || '',
+            xp: profile.xp || 0,
+            level: profile.level || 1,
+            levelName: profile.level_name || 'Rookie',
+            streak: profile.streak || 0,
+          },
+        ];
+      }
+
+      // Sort by XP descending and assign ranks
+      const sorted = rows
+        .sort((a, b) => b.xp - a.xp)
+        .map((u, i) => ({ ...u, rank: i + 1 }));
+
       setEntries(sorted);
 
-      // Find current user's rank
       const myRank = sorted.findIndex(e => e.uid === user?.id);
       setUserRank(myRank >= 0 ? myRank + 1 : null);
     } catch (err) {
@@ -163,10 +182,10 @@ export default function Leaderboard({ user, profile, onLogout }) {
                 <div style={{ fontWeight: 700, color: 'var(--primary)' }}>(You) {maskEmail(user.email)}</div>
                 <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Not in top 50 yet</div>
               </div>
-              <div style={{ fontWeight: 800, color: 'var(--primary)' }}>{(profile?.gamification?.xp || 0).toLocaleString()}</div>
-              <div>Lv.{profile?.gamification?.level || 1}</div>
+              <div style={{ fontWeight: 800, color: 'var(--primary)' }}>{(profile?.xp || 0).toLocaleString()}</div>
+              <div>Lv.{profile?.level || 1}</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <Flame size={14} color="#FF9500" /> {profile?.gamification?.streak || 0}d
+                <Flame size={14} color="#FF9500" /> {profile?.streak || 0}d
               </div>
             </div>
           )}
