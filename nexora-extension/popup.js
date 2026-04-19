@@ -151,30 +151,35 @@ document.addEventListener('DOMContentLoaded', async () => {
                 await chrome.storage.local.set({ scanCache: cache });
             }
 
-            // Fix #4: Updated response parsing — risk_score, flags, explanation
-            // (was: classification, confidence, risk_factors[].detail)
-            const classification = data.classification || data.data?.riskLevel || 'Unknown';
-            const riskScore      = data.risk_score ?? data.data?.score ?? 0;
-            const flags          = data.flags ?? data.data?.reasons ?? [];
-            const explanation    = data.explanation || data.data?.explanation || '';
-            const confidence     = data.confidence || '';
+            // Normalize all result fields — backend may return numbers, nulls, or
+            // different field names depending on which endpoint responded.
+            const classification = String(data.classification || data.data?.riskLevel || 'Unknown');
+            const riskLevel      = String(data.risk_level || data.riskLevel || data.data?.riskLevel || 'Unknown');
+            const riskScore      = data.risk_score != null ? Number(data.risk_score) : (data.data?.score != null ? Number(data.data.score) : 0);
+            const rawConfidence  = data.confidence != null ? Number(data.confidence) : null;
+            const confidencePct  = rawConfidence != null
+                ? String(Math.round((rawConfidence > 1 ? rawConfidence : rawConfidence * 100))) + '%'
+                : 'N/A';
+            const explanation    = data.explanation || data.reason || data.data?.explanation || 'No details available';
+            const redFlags       = Array.isArray(data.red_flags) ? data.red_flags
+                                 : Array.isArray(data.flags)     ? data.flags
+                                 : Array.isArray(data.data?.reasons) ? data.data.reasons
+                                 : [];
 
             // Render badge
-            badge.textContent = classification;
+            badge.textContent = classification.toUpperCase();
             badge.className   = 'badge ' + classification.toLowerCase().replace(/\s+/g, '-');
 
             // Render risk score + confidence
-            riskScoreText.textContent = `Risk Score: ${Math.round(riskScore)}% • Confidence: ${confidence.toUpperCase() || 'N/A'}`;
+            riskScoreText.textContent = `Risk: ${riskLevel} • Score: ${Math.round(riskScore)}% • Confidence: ${confidencePct}`;
 
             // Render explanation
-            if (explanation) {
-                explanationText.textContent = explanation;
-                explanationText.style.display = 'block';
-            }
+            explanationText.textContent = explanation;
+            explanationText.style.display = 'block';
 
             // Render flags
-            if (flags && flags.length > 0) {
-                riskFactors.innerHTML = flags.map(f =>
+            if (redFlags.length > 0) {
+                riskFactors.innerHTML = redFlags.map(f =>
                     `<div class="risk-item"><div class="risk-dot"></div><div>${typeof f === 'string' ? f : (f.detail || f.reason || JSON.stringify(f))}</div></div>`
                 ).join('');
             } else {
@@ -182,7 +187,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             // Fetch defense advice if not safe
-            if (classification.toLowerCase() !== 'safe') {
+            if (classification.toLowerCase() !== 'safe' && classification.toLowerCase() !== 'unknown') {
                 const adviceHtml = `<div class="risk-item" style="margin-top: 10px; font-weight: bold;">Generating defense strategy...</div>`;
                 riskFactors.innerHTML += adviceHtml;
 
