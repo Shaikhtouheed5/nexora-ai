@@ -15,7 +15,11 @@
       "Bash([ -e \"$PROJ/$p\" ])",
       "Bash(pip cache:*)",
       "Bash(dir)",
-      "Bash(npm list:*)"
+      "Bash(npm list:*)",
+      "Bash(npx eas-cli@latest init --id a72901f1-d70a-4c35-821c-3607a22d4422)",
+      "Bash(npx eas-cli@latest init --id a72901f1-d70a-4c35-821c-3607a22d4422 --force)",
+      "Bash(npx eas-cli@latest build --platform android --profile preview --non-interactive)",
+      "Bash(node -e \"const p = require\\('./plugins/withSmsReceiver'\\); console.log\\('Plugin loaded OK. Type:', typeof p\\);\")"
     ]
   }
 }
