@@ -18,15 +18,21 @@ from typing import Tuple, List
 OUTGOING_TRANSACTION_PATTERNS: List[str] = [
     r"(sent|debited|paid|transferred)\s+Rs\.?\s*[\d,]+(\.\d+)?\s*(from|via|through|to)",
     r"Rs\.?\s*[\d,]+(\.\d+)?\s*(debited|deducted)\s+from\s+.{0,20}(a/?c|account|ac)\b",
-    r"UPI\s+(Ref|ref|transaction|txn|payment).{0,20}\d{8,}",
-    r"IMPS\s+(Ref|ref|transaction|txn).{0,20}\d{8,}",
-    r"NEFT\s+(Ref|ref|transaction|txn).{0,20}\d{8,}",
-    r"RTGS\s+(Ref|ref|transaction|txn).{0,20}\d{8,}",
+    # Format: "a/c XXXX debited Rs.N" — account identifier appears before action
+    r"(a/?c|a/c|account|ac)\s+\w+\s+(debited|charged)\s+Rs\.?\s*[\d,]+",
+    # UPI/NEFT/IMPS/RTGS reference number — allow punctuation between keyword and Ref
+    r"(UPI|NEFT|IMPS|RTGS)[.\s]*(Ref|ref|transaction|txn|payment|ID)\s*[:#]?\s*\d{6,}",
+    # "via UPI/NEFT/IMPS/RTGS" in a debit/transaction context
+    r"(debited|sent|paid|transferred)\s+Rs\.?\s*[\d,]+.{0,30}via\s+(UPI|NEFT|IMPS|RTGS)\b",
 ]
 
 INCOMING_TRANSACTION_PATTERNS: List[str] = [
     r"(credited|received|deposited)\s+Rs\.?\s*[\d,]+(\.\d+)?\s*(to|in|into)\s+.{0,20}(a/?c|account)\b",
     r"Rs\.?\s*[\d,]+(\.\d+)?\s*(credited|deposited)\s+to\s+.{0,20}(a/?c|account)\b",
+    # Format: "a/c XXXX credited Rs.N" — account identifier appears before action
+    r"(a/?c|a/c|account|ac)\s+\w+\s+(credited|deposited|received)\s+Rs\.?\s*[\d,]+",
+    # Format: "credited Rs.N via UPI/NEFT/IMPS" — direction + amount + network
+    r"(credited|received|deposited)\s+Rs\.?\s*[\d,]+(\.\d+)?\s*via\s+(UPI|NEFT|IMPS|RTGS)\b",
 ]
 
 BALANCE_PATTERNS: List[str] = [
