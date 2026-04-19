@@ -1,7 +1,7 @@
 import json
 from fastapi import APIRouter, Depends, HTTPException, Request
 from core.dependencies import get_current_user
-from services.supabase_client import supabase
+from services.supabase_client import get_supabase
 from services.redis_client import get_cache, set_cache
 from utils.cache_helpers import scan_key, SCAN_TTL
 from utils.logger import logger
@@ -30,7 +30,7 @@ async def scan(request: Request, body: ScanRequest, user: dict = Depends(get_cur
 
     # Persist to scan_history
     try:
-        supabase.table("scan_history").insert({
+        get_supabase().table("scan_history").insert({
             "user_id": user.get("sub"),
             "content_type": content_type,
             "content_preview": content[:200],
@@ -64,7 +64,7 @@ async def scan_history(
     uid = user.get("sub")
     offset = (page - 1) * limit
     resp = (
-        supabase.table("scan_history")
+        get_supabase().table("scan_history")
         .select("*")
         .eq("user_id", uid)
         .order("created_at", desc=True)
@@ -78,7 +78,7 @@ async def scan_history(
 async def mark_safe(body: MarkSafeRequest, user: dict = Depends(get_current_user)):
     uid = user.get("sub")
     resp = (
-        supabase.table("scan_history")
+        get_supabase().table("scan_history")
         .update({"marked_safe": True})
         .eq("id", body.scan_id)
         .eq("user_id", uid)
