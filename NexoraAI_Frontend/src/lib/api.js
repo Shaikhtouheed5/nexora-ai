@@ -266,14 +266,14 @@ const api = {
     },
 
     async getQuiz(lang = 'en') {
-        const res = await fetch(`${EDU_API_BASE}/quiz?lang=${lang}`);
+        const res = await fetch(`${EDU_API_BASE}/edu/quiz?lang=${lang}`);
         return res.json();
     },
 
     async getDailyQuiz(lang = 'en') {
         const token = await getToken();
         const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-        const url = `${EDU_API_BASE}/quiz/daily?lang=${lang}`;
+        const url = `${EDU_API_BASE}/edu/quiz/daily?lang=${lang}`;
         console.log('[getDailyQuiz] fetching:', url);
         const res = await fetch(url, { headers });
         if (!res.ok) {
@@ -286,7 +286,7 @@ const api = {
 
     async submitQuiz(answers, userId, quizType = "daily", quizId = null) {
         const token = await getToken();
-        const res = await fetch(`${EDU_API_BASE}/quiz/score`, {
+        const res = await fetch(`${EDU_API_BASE}/edu/quiz/score`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -305,7 +305,7 @@ const api = {
     async getLeaderboard() {
         try {
             const token = await getToken();
-            const res = await fetch(`${EDU_API_BASE}/leaderboard`, {
+            const res = await fetch(`${EDU_API_BASE}/edu/leaderboard`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (!res.ok) {
@@ -321,7 +321,7 @@ const api = {
 
     async getProfile() {
         const token = await getToken();
-        const res = await fetch(`${EDU_API_BASE}/profile`, {
+        const res = await fetch(`${EDU_API_BASE}/edu/profile`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.status === 401) throw new Error("Unauthorized");
@@ -330,7 +330,7 @@ const api = {
 
     async getHistory() {
         const token = await getToken();
-        const res = await fetch(`${EDU_API_BASE}/history`, {
+        const res = await fetch(`${EDU_API_BASE}/edu/history`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         if (!res.ok) return [];
@@ -398,7 +398,7 @@ const api = {
     async awardXp(xp_amount, reason = 'general') {
         try {
             const token = await getToken();
-            await fetch(`${EDU_API_BASE}/leaderboard/award-xp`, {
+            await fetch(`${EDU_API_BASE}/edu/leaderboard/award-xp`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ xp_amount, reason }),
@@ -421,7 +421,7 @@ const api = {
     async getMessageAdvice(message, classification, lang = 'en') {
         try {
             const token = await getToken();
-            const res = await fetch(`${EDU_API_BASE}/advice/message`, {
+            const res = await fetch(`${EDU_API_BASE}/edu/advice/message`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -444,7 +444,7 @@ const api = {
     async getLessons(lang = 'en') {
         const token = await getToken();
         const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-        const url = `${EDU_API_BASE}/lessons?lang=${lang}`;
+        const url = `${EDU_API_BASE}/edu/lessons?lang=${lang}`;
         console.log('[getLessons] fetching:', url);
         const res = await fetch(url, { headers });
         if (!res.ok) {
@@ -458,14 +458,14 @@ const api = {
     async getLesson(id, lang = 'en') {
         const token = await getToken();
         const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-        const res = await fetch(`${EDU_API_BASE}/lessons/${id}?lang=${lang}`, { headers });
+        const res = await fetch(`${EDU_API_BASE}/edu/lessons/${id}?lang=${lang}`, { headers });
         if (!res.ok) throw new Error('Failed to fetch lesson');
         return res.json();
     },
 
     async completeLesson(id) {
         const token = await getToken();
-        const res = await fetch(`${EDU_API_BASE}/lessons/${id}/complete`, {
+        const res = await fetch(`${EDU_API_BASE}/edu/lessons/${id}/complete`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`
@@ -478,7 +478,7 @@ const api = {
     async getActivity() {
         const token = await getToken();
         const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-        const res = await fetch(`${EDU_API_BASE}/activity`, { headers });
+        const res = await fetch(`${EDU_API_BASE}/edu/activity`, { headers });
         if (!res.ok) return [];
         return res.json();
     },
