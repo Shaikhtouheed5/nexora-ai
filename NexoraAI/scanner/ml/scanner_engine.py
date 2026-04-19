@@ -1,200 +1,179 @@
-"""
-Nexora AI — Scanner Engine
-Hybrid pipeline: Heuristics → ML model → Gemini AI fallback
-"""
-import os
+import asyncio
+import json
 import joblib
 import numpy as np
-from dataclasses import dataclass
-from typing import Literal
+import pandas as pd
+from pathlib import Path
+from utils.logger import logger
+from ml import heuristics
+from ml.link_analyzer import analyze_link
+from services.gemini_client import analyze_threat
+from services.safebrowsing_client import check_url as gsb_check
+from services.virustotal_client import scan_url as vt_scan
 
-from ml.heuristics import analyse_text, analyse_url
-from ml.link_analyzer import extract_features, features_to_vector
-from utils.logger import get_logger
-
-logger = get_logger("scanner_engine")
-
-ContentType = Literal["sms", "email", "url", "password"]
-
-_MODEL_PATH = os.path.join(os.path.dirname(__file__), "models", "phish_pipeline.joblib")
-_ml_model = None
+MODEL_DIR = Path(__file__).parent / "saved_model"
 
 
-def _load_model():
-    global _ml_model
-    if _ml_model is None:
-        if os.path.exists(_MODEL_PATH):
-            try:
-                _ml_model = joblib.load(_MODEL_PATH)
-                logger.info("ML phishing model loaded.")
-            except Exception as exc:
-                logger.warning(f"Could not load ML model: {exc}. Using heuristics only.")
-        else:
-            logger.warning(f"ML model not found at {_MODEL_PATH}. Using heuristics only.")
-    return _ml_model
+class ScannerEngine:
+    def __init__(self):
+        self.text_model = None
+        self.url_model = None
+        self.url_meta = {}
+        self._ready = False
 
-
-@dataclass
-class ScanResult:
-    classification: str      # "safe" | "phishing" | "smishing" | "suspicious"
-    risk_score: int           # 0–100
-    confidence: str           # "high" | "medium" | "low"
-    flags: list[str]
-    explanation: str
-    method: str               # "heuristics" | "ml" | "ai" | "combined"
-
-
-async def scan_text(text: str, content_type: ContentType = "sms") -> ScanResult:
-    """
-    Full hybrid scan for SMS or email body text.
-    """
-    heuristic = analyse_text(text)
-    flags = list(heuristic.flags)
-    score = heuristic.risk_score
-    method = "heuristics"
-
-    # Try ML model if available
-    model = _load_model()
-    if model is not None:
+    async def initialize(self):
+        loop = asyncio.get_event_loop()
         try:
-            # Simple TF-IDF pipeline expects raw text
-            prediction = model.predict([text])[0]
-            proba = model.predict_proba([text])[0]
-            ml_score = int(max(proba) * 100)
+            self.text_model = await loop.run_in_executor(
+                None, joblib.load, MODEL_DIR / "phish_pipeline.joblib"
+            )
+            logger.info("Text ML model loaded")
+        except Exception as e:
+            logger.warning(f"Text ML model failed to load: {e}")
 
-            if prediction == 1:  # phishing
-                score = max(score, ml_score)
-                flags.append("ml_flagged")
-                method = "ml"
-            else:
-                # Average down if ML says safe
-                score = int((score + (100 - ml_score)) / 2)
-                method = "combined"
-        except Exception as exc:
-            logger.warning(f"ML inference failed, using heuristics: {exc}")
-
-    # Gemini AI fallback — only if score is ambiguous (30–70 range)
-    explanation = _default_explanation(flags, content_type)
-    if 30 <= score <= 70:
         try:
-            from services.gemini_client import gemini_client
-            ai_result = await gemini_client.classify_threat(text, content_type)
-            ai_score = ai_result.get("risk_score", score)
-            score = int((score + ai_score) / 2)
-            explanation = ai_result.get("explanation", explanation)
-            method = "ai" if method == "heuristics" else "combined"
-        except Exception as exc:
-            logger.warning(f"Gemini fallback failed: {exc}")
+            self.url_model = await loop.run_in_executor(
+                None, joblib.load, MODEL_DIR / "phish_url_model.joblib"
+            )
+            logger.info("URL ML model loaded")
+        except Exception as e:
+            logger.warning(f"URL ML model failed to load: {e}")
 
-    classification = _classify(score, content_type)
-    confidence = _confidence(score)
-
-    return ScanResult(
-        classification=classification,
-        risk_score=min(score, 100),
-        confidence=confidence,
-        flags=flags,
-        explanation=explanation,
-        method=method,
-    )
-
-
-async def scan_url(url: str) -> ScanResult:
-    """
-    Full hybrid scan for a URL.
-    Combines: heuristics + link features + Safe Browsing + VirusTotal + Gemini
-    """
-    heuristic = analyse_url(url)
-    flags = list(heuristic.flags)
-    score = heuristic.risk_score
-    method = "heuristics"
-
-    # Safe Browsing check
-    try:
-        from services.safebrowsing_client import safe_browsing_client
-        sb_result = await safe_browsing_client.check_url(url)
-        if not sb_result["is_safe"]:
-            score = max(score, 85)
-            flags.extend(sb_result.get("threats", []))
-            flags.append("google_safe_browsing_flagged")
-            method = "combined"
-    except Exception as exc:
-        logger.warning(f"Safe Browsing check error: {exc}")
-
-    # VirusTotal check
-    try:
-        from services.virustotal_client import virustotal_client
-        vt_result = await virustotal_client.scan_url(url)
-        malicious = vt_result.get("malicious", 0)
-        suspicious = vt_result.get("suspicious", 0)
-        if malicious > 0:
-            score = max(score, 90)
-            flags.append(f"virustotal_malicious:{malicious}")
-        elif suspicious > 0:
-            score = max(score, 65)
-            flags.append(f"virustotal_suspicious:{suspicious}")
-        method = "combined"
-    except Exception as exc:
-        logger.warning(f"VirusTotal check error: {exc}")
-
-    explanation = _default_explanation(flags, "url")
-    if 30 <= score <= 70:
+        # Load URL model meta for feature ordering
         try:
-            from services.gemini_client import gemini_client
-            ai_result = await gemini_client.classify_threat(url, "url")
-            ai_score = ai_result.get("risk_score", score)
-            score = int((score + ai_score) / 2)
-            explanation = ai_result.get("explanation", explanation)
-            method = "combined"
-        except Exception as exc:
-            logger.warning(f"Gemini URL fallback failed: {exc}")
+            import json as _json
+            with open(MODEL_DIR / "url_model_meta.json") as f:
+                self.url_meta = _json.load(f)
+        except Exception as e:
+            logger.warning(f"URL model meta failed to load: {e}")
 
-    classification = _classify(score, "url")
-    confidence = _confidence(score)
+        self._ready = True
 
-    return ScanResult(
-        classification=classification,
-        risk_score=min(score, 100),
-        confidence=confidence,
-        flags=flags,
-        explanation=explanation,
-        method=method,
-    )
+    async def scan(
+        self, content: str, content_type: str, language: str = "en", sender: str = ""
+    ) -> dict:
+        # STAGE 1: Heuristics
+        h_confidence, h_flags = heuristics.check(content, content_type, sender)
+        # Short-circuit on whitelisted (safe) transactions — skip ML and Gemini
+        if "legitimate_transaction" in h_flags:
+            return self._build_result("safe", h_confidence, h_flags, language)
+        if h_confidence >= 0.95:
+            verdict = self._confidence_to_verdict(h_confidence)
+            return self._build_result(verdict, h_confidence, h_flags, language)
 
+        # STAGE 2: ML model
+        ml_confidence = 0.0
+        ml_label = None
+        try:
+            if content_type == "url" and self.url_model:
+                from ml.url_features import extract_url_features
+                features_dict = extract_url_features(content)
+                feature_names = self.url_meta.get("features", list(features_dict.keys()))
+                ordered_features = [features_dict.get(name, 0) for name in feature_names]
+                X = pd.DataFrame([ordered_features], columns=feature_names)
+                proba = self.url_model.predict_proba(X)[0]
+                ml_confidence = float(proba[1])
+                ml_label = "malicious" if ml_confidence >= 0.5 else "safe"
+            elif self.text_model:
+                # Clean text same way as training
+                import re
+                cleaned = str(content).lower().strip()
+                cleaned = re.sub(r'http[s]?://\S+', ' __URL__ ', cleaned)
+                cleaned = re.sub(r'\b\d{10,}\b', ' __PHONE__ ', cleaned)
+                cleaned = re.sub(r'[£$€]\d+', ' __MONEY__ ', cleaned)
+                cleaned = re.sub(r'\s+', ' ', cleaned)
+                proba = self.text_model.predict_proba([cleaned])[0]
+                ml_confidence = float(proba[1])
+                ml_label = "malicious" if ml_confidence >= 0.5 else "safe"
+        except Exception as e:
+            logger.warning(f"ML model inference failed: {e}")
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
+        # Combine heuristics + ML
+        combined_confidence = max(h_confidence, ml_confidence)
+        all_flags = list(h_flags)
 
-def _classify(score: int, content_type: str) -> str:
-    if score >= 70:
-        return "smishing" if content_type == "sms" else "phishing" if content_type == "email" else "malicious"
-    if score >= 40:
-        return "suspicious"
-    return "safe"
+        if combined_confidence >= 0.75:
+            verdict = self._confidence_to_verdict(combined_confidence)
+            result = self._build_result(verdict, combined_confidence, all_flags, language)
 
+            # For URLs: run GSB + VT in parallel
+            if content_type == "url":
+                result = await self._enrich_url_result(content, result)
+            return result
 
-def _confidence(score: int) -> str:
-    if score >= 75 or score <= 20:
-        return "high"
-    if score >= 50 or score <= 35:
-        return "medium"
-    return "low"
+        # STAGE 3: Gemini
+        gemini_result = await analyze_threat(content, content_type, language)
+        gemini_confidence = gemini_result.get("confidence", 0.0)
+        final_confidence = max(combined_confidence, gemini_confidence)
+        final_verdict = gemini_result.get("verdict", self._confidence_to_verdict(final_confidence))
+        final_flags = list(set(all_flags + gemini_result.get("flags", [])))
 
+        result = {
+            "verdict": final_verdict,
+            "confidence": round(final_confidence, 4),
+            "threat_type": gemini_result.get("threat_type"),
+            "explanation": gemini_result.get("explanation")
+                or heuristics.build_explanation(final_verdict, final_flags),
+            "flags": final_flags,
+            "riskLevel": final_verdict.upper() if final_verdict in ("safe", "suspicious", "malicious")
+                else "SAFE",
+            "score": min(100, round(final_confidence * 100)),
+            "safe_browsing_result": None,
+            "virustotal_result": None,
+        }
 
-def _default_explanation(flags: list[str], content_type: str) -> str:
-    if not flags:
-        return f"No suspicious patterns detected in this {content_type}."
-    readable = {
-        "urgency_language": "uses urgency tactics",
-        "credential_request": "requests sensitive credentials",
-        "prize_or_reward": "promises prizes or rewards",
-        "suspicious_url": "contains suspicious links",
-        "brand_impersonation": "impersonates a known brand",
-        "ml_flagged": "flagged by ML classifier",
-        "google_safe_browsing_flagged": "flagged by Google Safe Browsing",
-        "suspicious_url_pattern": "matches known malicious URL patterns",
-        "excessive_subdomains": "has an unusually high number of subdomains",
-        "at_sign_in_url": "contains @ in URL (common phishing trick)",
-        "indian_brand_domain_spoof": "contains an Indian brand name in a non-official domain (likely spoofing)",
-    }
-    reasons = [readable.get(f, f) for f in flags[:3]]
-    return f"This {content_type} " + ", ".join(reasons) + "."
+        if content_type == "url":
+            result = await self._enrich_url_result(content, result)
+
+        return result
+
+    async def _enrich_url_result(self, url: str, result: dict) -> dict:
+        try:
+            gsb, vt = await asyncio.gather(
+                gsb_check(url),
+                vt_scan(url),
+                return_exceptions=True,
+            )
+            if isinstance(gsb, dict):
+                result["safe_browsing_result"] = gsb
+                if not gsb.get("is_safe", True):
+                    result["verdict"] = "malicious"
+                    result["confidence"] = max(result["confidence"], 0.95)
+            if isinstance(vt, dict):
+                result["virustotal_result"] = vt
+                if vt.get("is_malicious"):
+                    result["verdict"] = "malicious"
+                    result["confidence"] = max(result["confidence"], 0.95)
+        except Exception as e:
+            logger.warning(f"URL enrichment failed: {e}")
+        return result
+
+    def _confidence_to_verdict(self, confidence: float) -> str:
+        if confidence >= 0.65:
+            return "malicious"
+        if confidence >= 0.40:
+            return "suspicious"
+        return "safe"
+
+    def _build_result(self, verdict: str, confidence: float, flags: list, language: str) -> dict:
+        threat_map = {
+            "malicious": "smishing",
+            "suspicious": "phishing",
+            "safe": None,
+        }
+        risk_level_map = {
+            "malicious": "MALICIOUS",
+            "suspicious": "SUSPICIOUS",
+            "safe": "SAFE",
+        }
+        return {
+            "verdict": verdict,
+            "confidence": round(confidence, 4),
+            "threat_type": threat_map.get(verdict),
+            "explanation": heuristics.build_explanation(verdict, flags),
+            "flags": flags,
+            "riskLevel": risk_level_map.get(verdict, "SAFE"),
+            "score": min(100, round(confidence * 100)),
+            "safe_browsing_result": None,
+            "virustotal_result": None,
+        }
