@@ -3,7 +3,7 @@ from core.dependencies import get_current_user
 from services.supabase_client import get_supabase
 from utils.cache_helpers import make_cache_key, get_cached, set_cached
 from utils.logger import get_logger
-from schemas.scanner import ScanRequest, ScanBatchRequest, MarkSafeRequest
+from schemas.scanner import ScanRequest, ScanBatchRequest, MarkSafeRequest, MarkMaliciousRequest
 
 logger = get_logger("scanner")
 
@@ -85,3 +85,16 @@ async def mark_safe(body: MarkSafeRequest, user: dict = Depends(get_current_user
         .execute()
     )
     return {"detail": "Marked as safe", "updated": resp.data}
+
+
+@router.post("/mark-malicious")
+async def mark_malicious(body: MarkMaliciousRequest, user: dict = Depends(get_current_user)):
+    uid = user.get("id")
+    resp = (
+        get_supabase().table("scan_history")
+        .update({"marked_malicious": True})
+        .eq("id", body.scan_id)
+        .eq("user_id", uid)
+        .execute()
+    )
+    return {"detail": "Marked as malicious", "updated": resp.data}
