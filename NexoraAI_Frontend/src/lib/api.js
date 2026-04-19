@@ -238,7 +238,7 @@ const api = {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`
             },
-            body: JSON.stringify({ message }),
+            body: JSON.stringify({ text: message }),
         });
         if (res.status === 401) throw new Error("Unauthorized");
         const raw = await res.text();
