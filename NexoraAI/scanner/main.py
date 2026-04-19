@@ -1,9 +1,25 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
 from routers import scanner
+from ml.scanner_engine import ScannerEngine
+from utils.logger import get_logger
 
-app = FastAPI()
+logger = get_logger("main")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("Starting NexoraAI scanner service")
+    app.state.scanner = ScannerEngine()
+    await app.state.scanner.initialize()
+    logger.info("ScannerEngine initialized")
+    yield
+    logger.info("Shutting down NexoraAI scanner service")
+
+
+app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
