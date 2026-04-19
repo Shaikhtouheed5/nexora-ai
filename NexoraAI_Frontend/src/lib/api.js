@@ -362,7 +362,7 @@ const api = {
 
             console.log(`🚀 Batch Scan: Scanning ${toScan.length} new messages, ${results.length} from cache`);
 
-            const res = await fetch(`${SCANNER_API_BASE}/scan-batch`, {
+            const res = await fetch(`${SCANNER_API_BASE}/scan/scan-batch`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
