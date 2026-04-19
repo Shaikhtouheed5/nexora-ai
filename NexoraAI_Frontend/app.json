@@ -52,6 +52,7 @@
     "userInterfaceStyle": "dark",
     "plugins": [
       "./plugins/withSmsReceiver",
+      "./plugins/withSmsReader",
       "expo-web-browser",
       [
         "expo-build-properties",
