@@ -1,11 +1,11 @@
-import json
 from fastapi import APIRouter, Depends, HTTPException, Request
 from core.dependencies import get_current_user
 from services.supabase_client import get_supabase
-from services.redis_client import get_cache, set_cache
-from utils.cache_helpers import scan_key, SCAN_TTL
-from utils.logger import logger
+from utils.cache_helpers import make_cache_key, get_cached, set_cached
+from utils.logger import get_logger
 from schemas.scanner import ScanRequest, ScanBatchRequest, MarkSafeRequest
+
+logger = get_logger("scanner")
 
 
 router = APIRouter()
@@ -22,9 +22,9 @@ async def scan(request: Request, body: ScanRequest, user: dict = Depends(get_cur
     language = body.language or "en"
     sender = body.sender or ""
 
-    cache_hit = get_cache(scan_key(content))
+    cache_hit = await get_cached(make_cache_key("scan", content))
     if cache_hit:
-        return json.loads(cache_hit)
+        return cache_hit
 
     result = await engine.scan(content, content_type, language, sender=sender)
 
@@ -41,7 +41,7 @@ async def scan(request: Request, body: ScanRequest, user: dict = Depends(get_cur
     except Exception:
         pass
 
-    set_cache(scan_key(content), json.dumps(result), ex=SCAN_TTL)
+    await set_cached(make_cache_key("scan", content), result)
     return result
 
 
