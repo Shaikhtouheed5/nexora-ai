@@ -68,11 +68,12 @@ export default function ResultCard({ result, onPress, onMarkSafe, onMarkMaliciou
         return <AlertTriangle size={24} color={config.color} />;
     };
 
-    // Format date logic
+    // Format date — date field is a raw Unix ms timestamp from SMS
     const formatDate = (date) => {
         if (!date) return '';
-        const d = new Date(date);
-        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const msgDate = new Date(parseInt(date));
+        if (isNaN(msgDate.getTime())) return '';
+        return msgDate.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
     };
 
     return (

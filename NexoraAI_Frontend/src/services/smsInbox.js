@@ -50,7 +50,9 @@ function readNativeSMS() {
 
         const filter = {
             box: 'inbox',
-            maxCount: 200, // Last 200 messages — no date filter, no address filter
+            maxCount: 200,
+            indexFrom: 0,
+            sort: true, // newest first
         };
 
         SmsAndroid.list(
@@ -62,11 +64,13 @@ function readNativeSMS() {
                 try {
                     const messages = JSON.parse(smsList);
                     const formatted = messages.map((sms, index) => ({
-                        id: `sms_${sms._id || index}`,
+                        id: sms._id || `sms_${index}`,
                         sender: sms.address || 'Unknown',
                         body: sms.body || '',
-                        date: sms.date ? new Date(parseInt(sms.date)).toISOString() : new Date().toISOString(),
+                        date: sms.date, // raw Unix ms — preserved as-is
                     }));
+                    // Ensure newest-first order regardless of native sort
+                    formatted.sort((a, b) => parseInt(b.date) - parseInt(a.date));
                     resolve(formatted);
                 } catch (err) {
                     reject(err);

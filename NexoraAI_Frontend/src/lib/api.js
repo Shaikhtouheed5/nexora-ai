@@ -141,29 +141,72 @@ const _normalizeResult = (data, inputText = '', inputSender = '', inputDate = nu
         date: data.date || inputDate || new Date().toISOString(),
     };
 
-    // Content-based override: catch threats the ML model misses
+    // Content-based override: Indian SMS phishing patterns
     const msgText = (body || inputText).toLowerCase();
-    const URGENCY_WORDS = [
-        'urgent', 'blocked', 'verify', 'suspend', 'otp',
-        'expire', 'immediately', 'click', 'login', 'won', 'prize', 'lucky',
-        'congratulations', 'free', 'claim', 'kyc', 'pan card', 'aadhar',
-        'debit', 'credit', 'account', 'bank', 'limited time', 'act now',
-    ];
-    const PHISHING_URLS = /http:\/\/(?!www\.(google|amazon|sbi|hdfc|icici|axis))/i;
-    const HAS_SUSPICIOUS_URL = PHISHING_URLS.test(msgText);
-    const URGENCY_COUNT = URGENCY_WORDS.filter(w => msgText.includes(w)).length;
 
-    // HTTP URL + urgency keywords → Malicious
-    if (HAS_SUSPICIOUS_URL && URGENCY_COUNT >= 2) {
+    const MALICIOUS_PATTERNS = [
+        /http:\/\/(?!sbi\.co\.in|hdfcbank|icicibank|axisbank|npci\.org\.in)/i,
+        /your.*account.*block/i,
+        /verify.*now/i,
+        /click.*link/i,
+        /otp.*share/i,
+        /kyc.*update/i,
+        /pan.*verify/i,
+        /aadhar.*link/i,
+        /won.*prize/i,
+        /lottery.*winner/i,
+        /claim.*reward/i,
+        /free.*gift/i,
+    ];
+
+    const SUSPICIOUS_PATTERNS = [
+        /urgent/i,
+        /immediately/i,
+        /expire/i,
+        /suspend/i,
+        /limited.*time/i,
+        /act.*now/i,
+        /dear.*customer.*click/i,
+        /congratulations.*won/i,
+        /bit\.ly|tinyurl|t\.co\/|goo\.gl/i,
+        /your.*account.*debit.*suspicious/i,
+        /\d{10}.*otp/i,
+    ];
+
+    const MALICIOUS_HIT = MALICIOUS_PATTERNS.some(p => p.test(msgText));
+    const SUSPICIOUS_COUNT = SUSPICIOUS_PATTERNS.filter(p => p.test(msgText)).length;
+
+    if (MALICIOUS_HIT) {
         normalized.classification = 'Malicious';
-        normalized.confidence = Math.max(normalized.confidence, 0.85);
+        normalized.confidence = Math.max(normalized.confidence, 0.88);
         normalized.risk_level = 'high';
-    }
-    // High urgency count alone → Suspicious
-    else if (URGENCY_COUNT >= 4 && normalized.classification === 'Safe') {
+    } else if (SUSPICIOUS_COUNT >= 1 ||
+        (normalized.confidence > 0.25 && normalized.classification === 'Safe')) {
         normalized.classification = 'Suspicious';
-        normalized.confidence = Math.max(normalized.confidence, 0.65);
+        normalized.confidence = Math.max(normalized.confidence, 0.55);
         normalized.risk_level = 'medium';
+    }
+
+    // Generate human-readable explanation from detected signals
+    const getExplanation = (text, classification) => {
+        const reasons = [];
+        if (/http:\/\//i.test(text)) reasons.push('Contains non-secure HTTP link');
+        if (/urgent|immediately/i.test(text)) reasons.push('Uses urgency tactics');
+        if (/block|suspend/i.test(text)) reasons.push('Threatens account suspension');
+        if (/otp/i.test(text)) reasons.push('Requests OTP — banks never ask for this');
+        if (/kyc|pan|aadhar/i.test(text)) reasons.push('Requests sensitive KYC details');
+        if (/won|prize|lottery|reward/i.test(text)) reasons.push('Prize/lottery scam pattern');
+        if (/click.*link|verify.*now/i.test(text)) reasons.push('Pressures user to click link');
+        if (/bit\.ly|tinyurl/i.test(text)) reasons.push('Uses URL shortener to hide destination');
+        if (reasons.length === 0 && classification !== 'Safe')
+            reasons.push('Unusual patterns detected by neural analysis');
+        return reasons;
+    };
+
+    const flags = getExplanation(msgText, normalized.classification);
+    if (flags.length > 0) {
+        normalized.red_flags = flags;
+        normalized.explanation = flags.join('. ');
     }
 
     return normalized;
