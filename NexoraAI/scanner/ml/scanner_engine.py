@@ -4,7 +4,9 @@ import joblib
 import numpy as np
 import pandas as pd
 from pathlib import Path
-from utils.logger import logger
+from utils.logger import get_logger
+
+logger = get_logger("scanner_engine")
 from ml import heuristics
 from ml.link_analyzer import analyze_link
 from services.gemini_client import analyze_threat
