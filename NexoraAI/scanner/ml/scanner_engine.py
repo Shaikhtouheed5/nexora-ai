@@ -8,10 +8,16 @@ from utils.logger import get_logger
 
 logger = get_logger("scanner_engine")
 from ml import heuristics
-from ml.link_analyzer import analyze_link
-from services.gemini_client import analyze_threat
-from services.safebrowsing_client import check_url as gsb_check
-from services.virustotal_client import scan_url as vt_scan
+from services.safebrowsing_client import safe_browsing_client
+from services.virustotal_client import virustotal_client
+
+try:
+    from services.gemini_client import analyze_threat
+    _GEMINI_AVAILABLE = True
+except ImportError:
+    _GEMINI_AVAILABLE = False
+    async def analyze_threat(content, content_type, language="en"):
+        return {}
 
 MODEL_DIR = Path(__file__).parent / "saved_model"
 
@@ -132,8 +138,8 @@ class ScannerEngine:
     async def _enrich_url_result(self, url: str, result: dict) -> dict:
         try:
             gsb, vt = await asyncio.gather(
-                gsb_check(url),
-                vt_scan(url),
+                safe_browsing_client.check_url(url),
+                virustotal_client.scan_url(url),
                 return_exceptions=True,
             )
             if isinstance(gsb, dict):
