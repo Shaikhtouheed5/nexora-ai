@@ -58,6 +58,16 @@ function getTextColor(idx, answered, selectedIdx, correctIndex) {
   return C.muted;
 }
 
+// ─── XP helper ────────────────────────────────────────────────────────────────
+const getXP = (correct, total) => {
+  const pct = (correct / total) * 100;
+  if (pct >= 90) return 100;
+  if (pct >= 70) return 75;
+  if (pct >= 50) return 50;
+  if (pct >= 30) return 25;
+  return 10;
+};
+
 // ─── Results Screen ────────────────────────────────────────────────────────────
 function ResultsScreen({ correctCount, totalQ, xpEarned, onRetry }) {
   const navigate = useNavigate();
@@ -187,7 +197,7 @@ export default function QuizEngine({ questions = [], lessonId, category, user, o
     // Last question — save and show results
     setSaving(true);
     const finalCorrect = correctCount; // already incremented by handleSelect
-    const earned = 100; // flat 100 XP for completing any quiz
+    const earned = getXP(finalCorrect, totalQ);
     setXpEarned(earned);
 
     if (user?.id) {
