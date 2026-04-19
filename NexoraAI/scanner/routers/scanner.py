@@ -31,7 +31,7 @@ async def scan(request: Request, body: ScanRequest, user: dict = Depends(get_cur
     # Persist to scan_history
     try:
         get_supabase().table("scan_history").insert({
-            "user_id": user.get("sub"),
+            "user_id": user.get("id"),
             "content_type": content_type,
             "content_preview": content[:200],
             "verdict": result.get("verdict"),
@@ -61,7 +61,7 @@ async def scan_history(
     limit: int = 20,
     user: dict = Depends(get_current_user),
 ):
-    uid = user.get("sub")
+    uid = user.get("id")
     offset = (page - 1) * limit
     resp = (
         get_supabase().table("scan_history")
@@ -76,7 +76,7 @@ async def scan_history(
 
 @router.post("/mark-safe")
 async def mark_safe(body: MarkSafeRequest, user: dict = Depends(get_current_user)):
-    uid = user.get("sub")
+    uid = user.get("id")
     resp = (
         get_supabase().table("scan_history")
         .update({"marked_safe": True})
