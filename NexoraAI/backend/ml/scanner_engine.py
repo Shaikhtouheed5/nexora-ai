@@ -49,9 +49,14 @@ class ScannerEngine:
 
         self._ready = True
 
-    async def scan(self, content: str, content_type: str, language: str = "en") -> dict:
+    async def scan(
+        self, content: str, content_type: str, language: str = "en", sender: str = ""
+    ) -> dict:
         # STAGE 1: Heuristics
-        h_confidence, h_flags = heuristics.check(content, content_type)
+        h_confidence, h_flags = heuristics.check(content, content_type, sender)
+        # Short-circuit on whitelisted (safe) transactions — skip ML and Gemini
+        if "legitimate_transaction" in h_flags:
+            return self._build_result("safe", h_confidence, h_flags, language)
         if h_confidence >= 0.95:
             verdict = self._confidence_to_verdict(h_confidence)
             return self._build_result(verdict, h_confidence, h_flags, language)
@@ -107,8 +112,12 @@ class ScannerEngine:
             "verdict": final_verdict,
             "confidence": round(final_confidence, 4),
             "threat_type": gemini_result.get("threat_type"),
-            "explanation": gemini_result.get("explanation", ""),
+            "explanation": gemini_result.get("explanation")
+                or heuristics.build_explanation(final_verdict, final_flags),
             "flags": final_flags,
+            "riskLevel": final_verdict.upper() if final_verdict in ("safe", "suspicious", "malicious")
+                else "SAFE",
+            "score": min(100, round(final_confidence * 100)),
             "safe_browsing_result": None,
             "virustotal_result": None,
         }
@@ -140,29 +149,31 @@ class ScannerEngine:
         return result
 
     def _confidence_to_verdict(self, confidence: float) -> str:
-        if confidence >= 0.75:
+        if confidence >= 0.65:
             return "malicious"
-        if confidence >= 0.45:
+        if confidence >= 0.40:
             return "suspicious"
         return "safe"
 
     def _build_result(self, verdict: str, confidence: float, flags: list, language: str) -> dict:
-        explanations = {
-            "malicious": "This message contains strong indicators of a phishing or smishing attack.",
-            "suspicious": "This message contains suspicious patterns that may indicate a threat.",
-            "safe": "No significant threats detected.",
-        }
         threat_map = {
             "malicious": "smishing",
             "suspicious": "phishing",
             "safe": None,
         }
+        risk_level_map = {
+            "malicious": "MALICIOUS",
+            "suspicious": "SUSPICIOUS",
+            "safe": "SAFE",
+        }
         return {
             "verdict": verdict,
             "confidence": round(confidence, 4),
             "threat_type": threat_map.get(verdict),
-            "explanation": explanations.get(verdict, ""),
+            "explanation": heuristics.build_explanation(verdict, flags),
             "flags": flags,
+            "riskLevel": risk_level_map.get(verdict, "SAFE"),
+            "score": min(100, round(confidence * 100)),
             "safe_browsing_result": None,
             "virustotal_result": None,
         }

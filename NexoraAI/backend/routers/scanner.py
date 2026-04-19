@@ -15,15 +15,18 @@ router = APIRouter()
 @router.post("/text")
 async def scan(request: Request, body: ScanRequest, user: dict = Depends(get_current_user)):
     engine = request.app.state.scanner
-    content = body.content
+    content = body.text or body.content or ""
+    if not content:
+        raise HTTPException(status_code=422, detail="Either 'text' or 'content' must be provided")
     content_type = body.type or "sms"
     language = body.language or "en"
+    sender = body.sender or ""
 
     cache_hit = get_cache(scan_key(content))
     if cache_hit:
         return json.loads(cache_hit)
 
-    result = await engine.scan(content, content_type, language)
+    result = await engine.scan(content, content_type, language, sender=sender)
 
     # Persist to scan_history
     try:
