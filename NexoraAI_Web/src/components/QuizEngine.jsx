@@ -187,7 +187,7 @@ export default function QuizEngine({ questions = [], lessonId, category, user, o
     // Last question — save and show results
     setSaving(true);
     const finalCorrect = correctCount; // already incremented by handleSelect
-    const earned = Math.round((finalCorrect / totalQ) * 100);
+    const earned = 100; // flat 100 XP for completing any quiz
     setXpEarned(earned);
 
     if (user?.id) {

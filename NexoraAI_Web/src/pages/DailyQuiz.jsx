@@ -7,6 +7,8 @@ import { supabase } from '../lib/supabase';
 // Static quiz data — add more lesson files here as they are created
 const STATIC_QUIZZES = {
   'day-1': () => import('../data/quizzes/day-1.js').then(m => m.day1Quiz),
+  'day-2': () => import('../data/quizzes/day-2.js').then(m => m.day2Quiz),
+  'day-3': () => import('../data/quizzes/day-3.js').then(m => m.day3Quiz),
 };
 
 export default function DailyQuiz({ user, profile, onLogout, refreshProfile }) {
