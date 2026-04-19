@@ -368,7 +368,13 @@ const api = {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify({ messages: toScan }),
+                body: JSON.stringify({
+                    items: toScan.map(msg => ({
+                        text: msg.body || msg.text || '',
+                        sender: msg.sender || '',
+                        type: 'sms',
+                    })),
+                }),
             });
 
             if (!res.ok) {

@@ -50,7 +50,7 @@ async def scan_batch(request: Request, body: ScanBatchRequest, user: dict = Depe
     engine = request.app.state.scanner
     results = []
     for item in body.items[:20]:  # cap at 20
-        result = await engine.scan(item.content, item.type or "sms", item.language or "en")
+        result = await engine.scan(item.text or item.content, item.type or "sms", item.language or "en", sender=item.sender or "")
         results.append(result)
     return {"results": results}
 

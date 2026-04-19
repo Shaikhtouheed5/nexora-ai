@@ -18,10 +18,18 @@ class ScanRequest(BaseModel):
 
 
 class ScanItem(BaseModel):
+    # Accept both 'text' (frontend) and 'content' (legacy) field names.
+    text: Optional[str] = None
+    content: Optional[str] = None
     type: Optional[str] = "sms"
-    content: str
     language: Optional[str] = "en"
     sender: Optional[str] = ""
+
+    @model_validator(mode='after')
+    def check_text_or_content(self):
+        if not self.text and not self.content:
+            raise ValueError("Either 'text' or 'content' must be provided")
+        return self
 
 
 class ScanBatchRequest(BaseModel):

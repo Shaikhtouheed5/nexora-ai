@@ -99,7 +99,7 @@ export default function ResultCard({ result, onPress, onMarkSafe, onMarkMaliciou
                     {result.classification !== 'Safe' && (
                         <View style={[styles.footer, { borderTopColor: colors.glassBorder }]}>
                             <Text style={[styles.riskLabel, { color: config.color }]}>
-                                {t('risk_level')}: {result.classification.toUpperCase()}
+                                {t('risk_level')}: {(result.classification || '').toUpperCase()}
                             </Text>
                         </View>
                     )}
