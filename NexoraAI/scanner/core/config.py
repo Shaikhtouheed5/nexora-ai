@@ -1,6 +1,6 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import field_validator
-from typing import List
+from typing import List, Optional
 
 
 class Settings(BaseSettings):
@@ -14,15 +14,15 @@ class Settings(BaseSettings):
     SUPABASE_SERVICE_ROLE_KEY: str
     SUPABASE_JWT_SECRET: str
 
-    REDIS_URL: str
-    REDIS_TOKEN: str
+    REDIS_URL: Optional[str] = None
+    REDIS_TOKEN: Optional[str] = None
 
     GEMINI_API_KEY: str
 
-    GOOGLE_SAFE_BROWSING_API_KEY: str
-    VIRUSTOTAL_API_KEY: str
+    GOOGLE_SAFE_BROWSING_API_KEY: Optional[str] = None
+    VIRUSTOTAL_API_KEY: Optional[str] = None
 
-    ELEVENLABS_API_KEY: str
+    ELEVENLABS_API_KEY: Optional[str] = None
 
     ALLOWED_ORIGINS: str = "http://localhost:5173"
 
