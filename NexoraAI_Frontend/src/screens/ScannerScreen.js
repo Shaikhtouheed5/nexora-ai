@@ -382,7 +382,7 @@ export default function ScannerScreen() {
                     <View style={styles.heroContent}>
                         <ConfidenceGauge
                             value={stats ? stats.safe / (stats.total || 1) : 0.85}
-                            size={width * 0.65}
+                            size={Math.min(width - 40, 300)}
                             strokeWidth={20}
                         />
                         <View style={styles.heroBadge}>
@@ -698,6 +698,8 @@ const styles = StyleSheet.create({
     heroContent: {
         alignItems: 'center',
         justifyContent: 'center',
+        paddingHorizontal: 20,
+        overflow: 'hidden',
     },
     heroBadge: {
         flexDirection: 'row',

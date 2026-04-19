@@ -50,7 +50,7 @@ function readNativeSMS() {
 
         const filter = {
             box: 'inbox',
-            maxCount: 50, // Last 50 messages
+            maxCount: 200, // Last 200 messages — no date filter, no address filter
         };
 
         SmsAndroid.list(

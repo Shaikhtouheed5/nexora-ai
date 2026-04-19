@@ -117,7 +117,7 @@ const _normalizeResult = (data, inputText = '', inputSender = '', inputDate = nu
     if (confidence > 1) confidence = confidence / 100; // guard against 0-100 scale
     confidence = Math.min(1, Math.max(0, confidence));
 
-    // BUG 3: if backend says "safe" but confidence > 0.3, show as Suspicious
+    // if backend says "safe" but confidence > 0.3, show as Suspicious
     if (classification === 'Safe' && confidence > 0.3) {
         classification = 'Suspicious';
     }
@@ -125,7 +125,7 @@ const _normalizeResult = (data, inputText = '', inputSender = '', inputDate = nu
     const body = data.body || data.text || inputText || '';
     const sender = data.sender || inputSender || '';
 
-    return {
+    const normalized = {
         ...data,
         classification,
         confidence,
@@ -140,6 +140,33 @@ const _normalizeResult = (data, inputText = '', inputSender = '', inputDate = nu
         text: body,
         date: data.date || inputDate || new Date().toISOString(),
     };
+
+    // Content-based override: catch threats the ML model misses
+    const msgText = (body || inputText).toLowerCase();
+    const URGENCY_WORDS = [
+        'urgent', 'blocked', 'verify', 'suspend', 'otp',
+        'expire', 'immediately', 'click', 'login', 'won', 'prize', 'lucky',
+        'congratulations', 'free', 'claim', 'kyc', 'pan card', 'aadhar',
+        'debit', 'credit', 'account', 'bank', 'limited time', 'act now',
+    ];
+    const PHISHING_URLS = /http:\/\/(?!www\.(google|amazon|sbi|hdfc|icici|axis))/i;
+    const HAS_SUSPICIOUS_URL = PHISHING_URLS.test(msgText);
+    const URGENCY_COUNT = URGENCY_WORDS.filter(w => msgText.includes(w)).length;
+
+    // HTTP URL + urgency keywords → Malicious
+    if (HAS_SUSPICIOUS_URL && URGENCY_COUNT >= 2) {
+        normalized.classification = 'Malicious';
+        normalized.confidence = Math.max(normalized.confidence, 0.85);
+        normalized.risk_level = 'high';
+    }
+    // High urgency count alone → Suspicious
+    else if (URGENCY_COUNT >= 4 && normalized.classification === 'Safe') {
+        normalized.classification = 'Suspicious';
+        normalized.confidence = Math.max(normalized.confidence, 0.65);
+        normalized.risk_level = 'medium';
+    }
+
+    return normalized;
 };
 
 // Caching Helpers

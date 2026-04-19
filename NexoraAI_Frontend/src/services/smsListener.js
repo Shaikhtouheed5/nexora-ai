@@ -9,6 +9,8 @@ class SMSService {
         this.onNewMessage = null; // callback: (text) => void
         this.monitorInterval = null;
         this.isRunning = false;
+        this.seenIds = new Set();
+        this.initialScanDone = false;
     }
 
     /**
@@ -29,12 +31,10 @@ class SMSService {
 
             this.onNewMessage = onNewMessage;
             this.isRunning = true;
-            this.seenIds = new Set();
+            this.seenIds = new Set();       // start empty — first poll scans everything
+            this.initialScanDone = false;
 
-            // 1. Initialize last message state FIRST to create a baseline
-            await this.initLastMessage();
-
-            // 2. Start the loop
+            // Start the polling loop — first iteration will scan all existing messages
             this.monitorInterval = setInterval(async () => {
                 if (!this.isRunning) return;
                 try {
@@ -60,22 +60,6 @@ class SMSService {
             return granted;
         } catch (e) {
             return false;
-        }
-    }
-
-    async initLastMessage() {
-        try {
-            const { messages } = await getAllSMS();
-            if (messages && messages.length > 0) {
-                // Initialize seen IDs with current head of inbox
-                // We capture more than just the first to handle potentially busy inboxes on launch
-                messages.slice(0, 15).forEach(msg => this.seenIds.add(msg.id));
-                console.log(`SMS Listener initialized with ${this.seenIds.size} baseline IDs`);
-            } else {
-                console.log('SMS Inbox is empty, starting with clean set');
-            }
-        } catch (e) {
-            console.log('Failed to init last message baseline:', e);
         }
     }
 
@@ -106,25 +90,43 @@ class SMSService {
             const { messages, isDemo } = await getAllSMS();
             if (isDemo || !messages || messages.length === 0) return;
 
-            // Find all new messages by checking against our seen Set
+            if (!this.initialScanDone) {
+                // First load: scan ALL existing messages (oldest first), then mark all seen
+                this.initialScanDone = true;
+                console.log(`Initial inbox scan: ${messages.length} messages`);
+
+                // Mark every message as seen BEFORE firing callbacks
+                // so subsequent polls don't re-scan them
+                messages.forEach(msg => this.seenIds.add(msg.id));
+
+                // Fire callbacks oldest-first so UI displays in chronological order
+                for (let i = messages.length - 1; i >= 0; i--) {
+                    const msg = messages[i];
+                    if (this.onNewMessage) {
+                        this.onNewMessage(msg.body);
+                    }
+                }
+                return;
+            }
+
+            // Subsequent polls: only messages we haven't seen yet
+            // Messages arrive newest-first; stop at first known ID
             const newMessages = [];
             for (const msg of messages) {
-                if (this.seenIds.has(msg.id)) {
-                    break;
-                }
+                if (this.seenIds.has(msg.id)) break;
                 newMessages.push(msg);
             }
 
             if (newMessages.length > 0) {
                 console.log(`Processing ${newMessages.length} new messages from inbox`);
 
-                // Fire callbacks for all new messages (oldest first)
+                // Fire callbacks oldest-first
                 for (let i = newMessages.length - 1; i >= 0; i--) {
                     const msg = newMessages[i];
                     this.seenIds.add(msg.id);
 
-                    // Maintain historical set size (last 200 IDs)
-                    if (this.seenIds.size > 200) {
+                    // Keep set bounded to last 500 IDs
+                    if (this.seenIds.size > 500) {
                         const firstItem = this.seenIds.values().next().value;
                         this.seenIds.delete(firstItem);
                     }
