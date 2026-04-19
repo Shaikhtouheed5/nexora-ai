@@ -24,6 +24,8 @@ class Settings(BaseSettings):
 
     ELEVENLABS_API_KEY: Optional[str] = None
 
+    GROQ_API_KEY: Optional[str] = None
+
     ALLOWED_ORIGINS: str = "http://localhost:5173"
 
     @field_validator("SUPABASE_URL")

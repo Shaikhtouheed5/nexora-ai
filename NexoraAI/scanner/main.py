@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
-from routers import scanner
+from routers import scanner, scenarios
 from ml.scanner_engine import ScannerEngine
 from utils.logger import get_logger
 
@@ -29,6 +29,7 @@ app.add_middleware(
 )
 
 app.include_router(scanner.router, prefix="/scan")
+app.include_router(scenarios.router)
 
 @app.get("/")
 async def root():
