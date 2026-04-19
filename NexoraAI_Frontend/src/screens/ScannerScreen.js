@@ -134,7 +134,7 @@ export default function ScannerScreen() {
 
     const loadAdvice = async () => {
         try {
-            const data = await api.get('/advice', { params: { lang } });
+            const data = await api.get('/edu/advice', { params: { lang } });
             setAdvice(Array.isArray(data) ? data : []);
         } catch (e) {
             console.log('Advice retrieval failed:', e);
@@ -296,7 +296,7 @@ export default function ScannerScreen() {
 
     const handleMarkSafe = async (message) => {
         try {
-            await api.post('/mark-safe', {
+            await api.post('/scan/mark-safe', {
                 sender: message.sender,
                 message_body: message.body,
                 original_classification: message.classification,
@@ -313,7 +313,7 @@ export default function ScannerScreen() {
 
     const handleMarkMalicious = async (message) => {
         try {
-            await api.post('/mark-malicious', {
+            await api.post('/scan/mark-malicious', {
                 sender: message.sender,
                 message_body: message.body,
                 original_classification: message.classification,

@@ -65,7 +65,7 @@ export default function EducationScreen({ userId }) {
     const loadAdvice = async () => {
         setLoading(true);
         try {
-            const data = await api.get('/advice', { params: { lang } });
+            const data = await api.get('/edu/advice', { params: { lang } });
             setAdvice(Array.isArray(data) ? data : []);
         } catch (e) {
             console.log('Advice retrieval failed:', e);
