@@ -19,33 +19,37 @@ class SMSService {
      */
     async start(onNewMessage) {
         if (this.isRunning) return;
-
-        // Check for Android SMS permissions first
-        const hasPermission = await this.verifyPermissions();
-        if (!hasPermission) {
-            console.log('SMS Service cannot start: Permission denied');
-            return;
-        }
-
-        this.onNewMessage = onNewMessage;
-        this.isRunning = true;
-        this.seenIds = new Set();
-
-        // 1. Initialize last message state FIRST to create a baseline
-        await this.initLastMessage();
-
-        // 2. Start the loop
-        this.monitorInterval = setInterval(async () => {
-            if (!this.isRunning) return;
-            try {
-                await this.checkClipboard();
-                await this.checkInbox();
-            } catch (err) {
-                console.log('Monitor loop error:', err);
+        try {
+            // Check for Android SMS permissions first
+            const hasPermission = await this.verifyPermissions();
+            if (!hasPermission) {
+                console.log('SMS Service cannot start: Permission denied');
+                return;
             }
-        }, 3000); // 3 seconds is a safe sweet spot for battery vs speed
 
-        console.log('SMS Service started (Verified Permissions & Hybrid Tracking)');
+            this.onNewMessage = onNewMessage;
+            this.isRunning = true;
+            this.seenIds = new Set();
+
+            // 1. Initialize last message state FIRST to create a baseline
+            await this.initLastMessage();
+
+            // 2. Start the loop
+            this.monitorInterval = setInterval(async () => {
+                if (!this.isRunning) return;
+                try {
+                    await this.checkClipboard();
+                    await this.checkInbox();
+                } catch (err) {
+                    console.log('Monitor loop error:', err);
+                }
+            }, 3000); // 3 seconds is a safe sweet spot for battery vs speed
+
+            console.log('SMS Service started (Verified Permissions & Hybrid Tracking)');
+        } catch (e) {
+            console.log('SMS Service start failed (non-fatal):', e);
+            this.isRunning = false;
+        }
     }
 
     async verifyPermissions() {

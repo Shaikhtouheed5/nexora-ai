@@ -54,22 +54,35 @@ export default function ScannerScreen() {
 
     // Notification Setup
     useEffect(() => {
-        const setupNotifications = async () => {
-            const { status } = await Notifications.requestPermissionsAsync();
-            if (status !== 'granted') {
-                console.log('Notification permissions not granted');
+        const setup = async () => {
+            try {
+                const { status } = await Notifications.requestPermissionsAsync();
+                if (status !== 'granted') {
+                    console.log('Notification permissions not granted');
+                }
+            } catch (e) {
+                console.log('Notification permission request failed:', e);
+            }
+
+            try {
+                Notifications.setNotificationHandler({
+                    handleNotification: async () => ({
+                        shouldShowAlert: true,
+                        shouldPlaySound: true,
+                        shouldSetBadge: true,
+                    }),
+                });
+            } catch (e) {
+                console.log('setNotificationHandler failed:', e);
+            }
+
+            try {
+                await registerBackgroundScanner();
+            } catch (e) {
+                console.log('registerBackgroundScanner failed:', e);
             }
         };
-        setupNotifications();
-        registerBackgroundScanner();
-
-        Notifications.setNotificationHandler({
-            handleNotification: async () => ({
-                shouldShowAlert: true,
-                shouldPlaySound: true,
-                shouldSetBadge: true,
-            }),
-        });
+        setup();
     }, []);
     const [selectedMessage, setSelectedMessage] = useState(null);
     const [modalVisible, setModalVisible] = useState(false);
@@ -94,16 +107,26 @@ export default function ScannerScreen() {
     const pulseAnim = useRef(new Animated.Value(1)).current;
 
     useEffect(() => {
-        scanAllMessages();
-        loadAdvice();
+        try { scanAllMessages(); } catch (e) { console.log('scanAllMessages failed:', e); }
+        try { loadAdvice(); } catch (e) { console.log('loadAdvice failed:', e); }
 
         // Robust event-driven Hybrid Monitoring
-        smsService.start(async (text) => {
-            console.log('New message detected via service:', text);
-            await handleNewIncomingMessage(text);
-        });
+        try {
+            smsService.start(async (text) => {
+                try {
+                    console.log('New message detected via service:', text);
+                    await handleNewIncomingMessage(text);
+                } catch (e) {
+                    console.log('handleNewIncomingMessage failed:', e);
+                }
+            });
+        } catch (e) {
+            console.log('smsService.start failed:', e);
+        }
 
-        return () => smsService.stop();
+        return () => {
+            try { smsService.stop(); } catch (e) { console.log('smsService.stop failed:', e); }
+        };
     }, [lang]);
 
     const loadAdvice = async () => {
