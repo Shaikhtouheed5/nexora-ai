@@ -39,7 +39,7 @@ const SORT_OPTIONS = [
     { key: 'threat', label: 'by_threat' },
 ];
 
-export default function ScannerScreen() {
+export default function ScannerScreen({ onScanComplete } = {}) {
     const { colors, isDark } = useTheme();
     const { t, lang } = useI18n();
 
@@ -335,7 +335,11 @@ export default function ScannerScreen() {
         setQuickScanResult(null);
         try {
             const raw = await api.scanText(quickScanText.trim());
-            setQuickScanResult(normalizeScanResult(raw));
+            const result = normalizeScanResult(raw);
+            setQuickScanResult(result);
+            if (onScanComplete) {
+                onScanComplete(result.riskLevel.toLowerCase(), raw.scan_token);
+            }
         } catch (e) {
             Alert.alert('Scan Failed', e.message || 'Could not reach the server.');
         } finally {

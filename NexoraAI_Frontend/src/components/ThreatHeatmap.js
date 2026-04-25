@@ -25,7 +25,7 @@ export default function ThreatHeatmap({ messages = [] }) {
                     day.threats++;
                 }
             }
-        } catch (e) { }
+        } catch (e) { console.warn('[ThreatHeatmap] Invalid message date:', e.message); }
     });
 
     const maxThreats = Math.max(...days.map(d => d.threats), 1);

@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     # VirusTotal
     VIRUSTOTAL_API_KEY: str
 
+    # HMAC scan token signing
+    SECRET_KEY: str
+
     # CORS
     ALLOWED_ORIGINS: str = "http://localhost:5173"
 

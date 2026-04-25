@@ -176,7 +176,6 @@ class ApiClient {
     }
   }
 
-  // ── Legacy stubs (kept for backward-compat, no-op) ───────────────────────
   logout() {
     return supabase.auth.signOut();
   }

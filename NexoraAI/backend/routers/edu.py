@@ -95,20 +95,67 @@ async def submit_quiz(lesson_id: str, body: dict, user: dict = Depends(get_curre
 
 @router.get("/leaderboard")
 async def get_leaderboard(user: dict = Depends(get_current_user)):
+    uid = user.get("sub")
+
+    # Cache stores the raw ordered rows (no user_rank — that's per-user)
     cached = get_cache(leaderboard_key())
     if cached:
-        return json.loads(cached)
+        rows = json.loads(cached)
+    else:
+        resp = (
+            supabase.table("users")
+            .select("id, name, xp, level, avatar_url")
+            .order("xp", desc=True)
+            .limit(50)
+            .execute()
+        )
+        rows = resp.data or []
+        set_cache(leaderboard_key(), json.dumps(rows), ex=LEADERBOARD_TTL)
 
-    resp = (
-        supabase.table("profiles")
-        .select("id, display_name, xp, level, avatar_url")
-        .order("xp", desc=True)
-        .limit(50)
-        .execute()
-    )
-    result = resp.data or []
-    set_cache(leaderboard_key(), json.dumps(result), ex=LEADERBOARD_TTL)
-    return result
+    # Build top_users list with rank and display_name
+    top_users = []
+    user_rank_data = None
+    for i, row in enumerate(rows):
+        entry = {
+            "id":           row.get("id"),
+            "display_name": row.get("name"),
+            "xp":           row.get("xp", 0),
+            "level":        row.get("level", 1),
+            "avatar_url":   row.get("avatar_url"),
+            "rank":         i + 1,
+        }
+        top_users.append(entry)
+        if row.get("id") == uid:
+            user_rank_data = entry
+
+    # User is outside top 50 — compute rank via count query
+    if user_rank_data is None:
+        user_resp = (
+            supabase.table("users")
+            .select("id, name, xp, level, avatar_url")
+            .eq("id", uid)
+            .single()
+            .execute()
+        )
+        if user_resp.data:
+            user_xp = user_resp.data.get("xp", 0)
+            count_resp = (
+                supabase.table("users")
+                .select("id", count="exact")
+                .gt("xp", user_xp)
+                .execute()
+            )
+            rank = (count_resp.count or 0) + 1
+            user_rank_data = {
+                "id":           user_resp.data.get("id"),
+                "display_name": user_resp.data.get("name"),
+                "xp":           user_xp,
+                "level":        user_resp.data.get("level", 1),
+                "avatar_url":   user_resp.data.get("avatar_url"),
+                "rank":         rank,
+            }
+
+    return {"top_users": top_users, "user_rank": user_rank_data}
 
 
 @router.get("/progress")

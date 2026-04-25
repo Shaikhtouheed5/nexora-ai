@@ -1,6 +1,6 @@
 /**
- * utils/api.js — Centralized API client for NexoraAI
- * All network calls go through apiCall(). No other fetch() calls in the app.
+ * utils/api.js — Image scan API client
+ * Includes abort-controller timeout and response normalization not present in lib/api.js.
  */
 
 import { Alert } from 'react-native';
@@ -19,20 +19,6 @@ export const getSessionToken = async () => {
   } catch {
     return null;
   }
-};
-
-/**
- * Normalize the image scan response to always return { text: string }.
- * Backend should return { text } at top level, but handles edge cases.
- */
-const normalizeImageScanResponse = (raw) => {
-  if (typeof raw?.text === 'string') return { text: raw.text };
-  if (typeof raw?.data?.text === 'string') return { text: raw.data.text };
-  if (typeof raw?.result?.text === 'string') return { text: raw.result.text };
-  if (Array.isArray(raw?.responses) && typeof raw.responses[0]?.text === 'string') {
-    return { text: raw.responses[0].text };
-  }
-  throw new Error('Unexpected response shape: ' + JSON.stringify(raw));
 };
 
 export const apiCall = async (endpoint, method = 'GET', body = null) => {
@@ -58,18 +44,12 @@ export const apiCall = async (endpoint, method = 'GET', body = null) => {
     });
 
     const text = await response.text();
-    console.log('🌐 RAW RESPONSE:', text.slice(0, 500));
 
     if (!response.ok) {
       throw new Error(`API Error ${response.status}: ${text}`);
     }
 
     const parsed = JSON.parse(text);
-
-    // Normalize image scan response shape
-    if (endpoint.includes('/scan/image')) {
-      return normalizeImageScanResponse(parsed);
-    }
 
     return parsed;
 

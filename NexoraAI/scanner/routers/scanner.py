@@ -38,8 +38,8 @@ async def scan(request: Request, body: ScanRequest, user: dict = Depends(get_cur
             "confidence": result.get("confidence"),
             "threat_type": result.get("threat_type"),
         }).execute()
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"Scan history write failed: {e}")
 
     await set_cached(make_cache_key("scan", content), result)
     return result

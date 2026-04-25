@@ -19,7 +19,7 @@ const { width } = Dimensions.get('window');
 // ACADEMY_LESSONS removed - now fetched from API
 
 
-export default function EducationScreen({ userId }) {
+export default function EducationScreen({ userId, onNavigate }) {
     const { t, lang } = useI18n();
     const [view, setView] = useState('advice'); // 'advice' | 'quiz' | 'result'
     const [subView, setSubView] = useState('audit'); // 'audit' | 'academy'
@@ -365,15 +365,20 @@ export default function EducationScreen({ userId }) {
             {subView === 'audit' ? (
                 <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
                     {/* Hero */}
-                    <View style={styles.heroCard}>
-                        <View style={styles.heroBadge}>
-                            <Text style={styles.heroBadgeText}>{t('daily_challenge')}</Text>
+                    <TouchableOpacity
+                        onPress={() => onNavigate?.('challenge')}
+                        activeOpacity={0.8}
+                    >
+                        <View style={styles.heroCard}>
+                            <View style={styles.heroBadge}>
+                                <Text style={styles.heroBadgeText}>{t('daily_challenge')}</Text>
+                            </View>
+                            <Text style={styles.heroTitle}>{t('strategic_defense')}</Text>
+                            <Text style={styles.heroDesc}>
+                                {t('daily_quiz_desc')}
+                            </Text>
                         </View>
-                        <Text style={styles.heroTitle}>{t('strategic_defense')}</Text>
-                        <Text style={styles.heroDesc}>
-                            {t('daily_quiz_desc')}
-                        </Text>
-                    </View>
+                    </TouchableOpacity>
 
                     {/* Quiz CTA */}
                     <TouchableOpacity style={styles.primaryButton} activeOpacity={0.7} onPress={startQuiz}>

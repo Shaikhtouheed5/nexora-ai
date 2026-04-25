@@ -19,8 +19,10 @@ from typing import Optional, List
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from services.supabase_client import get_supabase_client
+from utils.logger import get_logger
 
 router = APIRouter()
+logger = get_logger("content_gen")
 
 # ─── Env Keys ─────────────────────────────────────────────────────────────────
 GROQ_API_KEY   = os.getenv("GROQ_API_KEY")
@@ -76,7 +78,7 @@ def _call_llm(system_prompt: str, user_prompt: str, max_tokens: int = 1024) -> s
             resp.raise_for_status()
             return resp.json()["choices"][0]["message"]["content"].strip()
         except Exception as e:
-            print(f"[content_gen] Groq call failed: {e}")
+            logger.warning(f"Groq call failed: {e}")
 
     # ── OpenAI fallback ──
     if OPENAI_API_KEY:
@@ -102,7 +104,7 @@ def _call_llm(system_prompt: str, user_prompt: str, max_tokens: int = 1024) -> s
             resp.raise_for_status()
             return resp.json()["choices"][0]["message"]["content"].strip()
         except Exception as e:
-            print(f"[content_gen] OpenAI call failed: {e}")
+            logger.warning(f"OpenAI call failed: {e}")
 
     raise RuntimeError("No LLM API key configured (set GROQ_API_KEY or OPENAI_API_KEY).")
 
@@ -181,17 +183,17 @@ def _background_generate_video(lesson_id: int, title: str, slides: list, lang: s
             "video_ready_at": datetime.utcnow().isoformat(),
         }).eq("id", lesson_id).execute()
 
-        print(f"[content_gen] Video generation complete for lesson {lesson_id}")
+        logger.info(f"Video generation complete for lesson {lesson_id}")
 
     except Exception as e:
-        print(f"[content_gen] Video generation FAILED for lesson {lesson_id}: {e}")
+        logger.error(f"Video generation FAILED for lesson {lesson_id}: {e}")
         try:
             sb.table("lessons").update({
                 "video_status": "failed",
                 "video_error":  str(e)[:500],
             }).eq("id", lesson_id).execute()
-        except Exception:
-            pass
+        except Exception as update_err:
+            logger.warning(f"Could not persist video failure status for lesson {lesson_id}: {update_err}")
 
 
 # ─── Endpoints ────────────────────────────────────────────────────────────────
@@ -274,7 +276,7 @@ async def generate_summary(request: GenerateSummaryRequest):
             raise ValueError("LLM returned invalid summary_points structure.")
     except (json.JSONDecodeError, ValueError, RuntimeError) as e:
         # Graceful fallback
-        print(f"[content_gen] Summary LLM error: {e}. Using fallback.")
+        logger.warning(f"Summary LLM error: {e}. Using fallback.")
         summary_points = [
             f"Learn to identify phishing tactics in '{request.title}'.",
             "Always verify sender identity before clicking links or sharing information.",
@@ -289,7 +291,7 @@ async def generate_summary(request: GenerateSummaryRequest):
             "summary_generated_at": datetime.utcnow().isoformat(),
         }).eq("id", request.lesson_id).execute()
     except Exception as e:
-        print(f"[content_gen] Failed to persist summary: {e}")
+        logger.warning(f"Failed to persist summary for lesson {request.lesson_id}: {e}")
 
     return {
         "lesson_id": request.lesson_id,
@@ -336,7 +338,7 @@ async def generate_quiz(request: GenerateQuizRequest):
         for i, q in enumerate(questions):
             q.setdefault("id", i + 1)
     except (json.JSONDecodeError, ValueError, RuntimeError) as e:
-        print(f"[content_gen] Quiz LLM error: {e}. Using fallback questions.")
+        logger.warning(f"Quiz LLM error: {e}. Using fallback questions.")
         questions = [
             {
                 "id": 1,
@@ -372,7 +374,7 @@ async def generate_quiz(request: GenerateQuizRequest):
             "quiz_generated_at": datetime.utcnow().isoformat(),
         }).eq("id", request.lesson_id).execute()
     except Exception as e:
-        print(f"[content_gen] Failed to persist quiz: {e}")
+        logger.warning(f"Failed to persist quiz for lesson {request.lesson_id}: {e}")
 
     return {
         "lesson_id": request.lesson_id,

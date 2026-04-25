@@ -23,6 +23,7 @@ import TextScannerScreen from './src/screens/TextScannerScreen';
 import HelpCenterScreen  from './src/screens/HelpCenterScreen';
 import SecurityScreen    from './src/screens/SecurityScreen';
 import MonitorScreen     from './src/screens/MonitorScreen';
+import ChallengeScreen  from './src/screens/ChallengeScreen';
 
 // ─── Components ─────────────────────────────────────────────────────────────
 import Sidebar from './src/components/Sidebar';
@@ -42,6 +43,7 @@ function AppContent() {
   const [activeTab, setActiveTab] = useState('scan');
   const [loading, setLoading]     = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [screenExtraProps, setScreenExtraProps] = useState({});
 
   const { t }              = useI18n();
   const { isDark, colors } = useTheme();
@@ -118,8 +120,9 @@ function AppContent() {
     setActiveTab('scan');
   };
 
-  const handleNavigate = (screen) => {
+  const handleNavigate = (screen, extraProps = {}) => {
     setActiveTab(screen);
+    setScreenExtraProps(extraProps);
     setSidebarOpen(false);
   };
 
@@ -155,12 +158,15 @@ function AppContent() {
   // ── Screen renderer ─────────────────────────────────────────────────────
   const renderScreen = () => {
     const commonProps = { user, profile, onLogout: handleLogout };
+    const extra = screenExtraProps;
 
     switch (activeTab) {
       case 'scan':
-        return <ScannerScreen {...commonProps} />;
+        return <ScannerScreen {...commonProps} {...extra} />;
       case 'learn':
-        return <EducationScreen userId={user.id} />;
+        return <EducationScreen userId={user.id} onNavigate={handleNavigate} />;
+      case 'challenge':
+        return <ChallengeScreen user={user} onNavigate={handleNavigate} {...extra} />;
       case 'text-scan':
         return <TextScannerScreen user={user} />;
       case 'leaderboard':
@@ -220,7 +226,7 @@ function AppContent() {
             <TouchableOpacity
               key={tab.key}
               style={styles.tab}
-              onPress={() => setActiveTab(tab.key)}
+              onPress={() => { setActiveTab(tab.key); setScreenExtraProps({}); }}
               activeOpacity={0.7}
             >
               <Text style={[styles.tabIcon, { opacity: isActive ? 1 : 0.5 }]}>{tab.icon}</Text>

@@ -73,13 +73,13 @@ export default function LeaderboardScreen() {
     const renderItem = ({ item, index }) => {
         const rank = index + 1;
         const isTop3 = rank <= 3;
-        const isSelf = item.user_id === userRank?.user_id;
+        const isSelf = item.id === userRank?.id;
         const rankColor = RANK_COLORS[rank] || colors?.textMuted || '#94A3B8';
         const badgeBg = isTop3 ? (rankColor + '20') : (colors?.bgDark || '#020617');
         const badgeBorder = isTop3 ? rankColor : 'transparent';
         const displayName = item.display_name || item.email || 'Agent';
         const initials = item.avatar_initials || displayName.slice(0, 2).toUpperCase();
-        const xp = item.xp_points ?? item.score ?? 0;
+        const xp = item.xp ?? item.xp_points ?? item.score ?? 0;
 
         return (
             <GlassCard style={[styles.card, isSelf && { borderColor: COLORS.primary, borderWidth: 1 }]}>
@@ -129,7 +129,7 @@ export default function LeaderboardScreen() {
 
     const bottomInset = insets?.bottom || 0;
     const safeRank = userRank?.rank ?? '-';
-    const safeScore = userRank?.score ?? 0;
+    const safeScore = userRank?.xp ?? 0;
 
     return (
         <View style={[styles.container, { backgroundColor: COLORS.bg }]}>

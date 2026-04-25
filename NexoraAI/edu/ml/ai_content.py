@@ -49,11 +49,12 @@ def generate_daily_quiz(language_code: str = "en", lesson_topic: str = None) -> 
         completion = client.chat.completions.create(
             model=MODEL_NAME,
             messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"} if "llama-3.3" in MODEL_NAME else None # Some models support this
+            # json_object mode is only supported on llama-3.3; older Groq models ignore it
+            response_format={"type": "json_object"} if "llama-3.3" in MODEL_NAME else None
         )
         text = completion.choices[0].message.content.strip()
-        
-        # Robust parsing
+
+        # Groq occasionally wraps the array in markdown fences; extract the raw array
         if "[" in text and "]" in text:
             text = text[text.find("["):text.rfind("]")+1]
             
@@ -104,11 +105,11 @@ def generate_lesson_content(title: str, category: str, language_code: str = "en"
             response_format={"type": "json_object"}
         )
         text = completion.choices[0].message.content.strip()
-        
-        # Handle cleanup just in case
+
+        # Groq occasionally wraps JSON in markdown fences; extract the raw object
         if "{" in text and "}" in text:
             text = text[text.find("{"):text.rfind("}")+1]
-            
+
         data = json.loads(text)
         return data
     except Exception as e:
@@ -144,13 +145,15 @@ def generate_message_advice(message: str, classification: str, language_code: st
         completion = client.chat.completions.create(
             model=MODEL_NAME,
             messages=[{"role": "user", "content": prompt}],
+            # json_object mode is only supported on llama-3.3; older Groq models ignore it
             response_format={"type": "json_object"} if "llama-3.3" in MODEL_NAME else None
         )
         text = completion.choices[0].message.content.strip()
-        
+
+        # Groq occasionally wraps JSON in markdown fences; extract the raw object
         if "{" in text and "}" in text:
             text = text[text.find("{"):text.rfind("}")+1]
-            
+
         data = json.loads(text)
         if isinstance(data, dict) and "advice" in data:
             return data["advice"]

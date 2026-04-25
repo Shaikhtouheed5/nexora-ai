@@ -15,7 +15,7 @@
  *   Daily streak        → streak bonus built into updateStreak
  */
 
-import supabase from './supabase';
+import { supabase } from './supabase';
 
 // ─── XP Rules ─────────────────────────────────────────────────────────────────
 export const XP_RULES = {

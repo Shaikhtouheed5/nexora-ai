@@ -8,7 +8,7 @@
  *   user_progress — id, user_id, lesson_id, xp_earned, completed, completed_at
  */
 
-import supabase from './supabase';
+import { supabase } from './supabase';
 import { awardXP, updateStreak } from './gamificationService';
 
 // ─── fetchLesson ──────────────────────────────────────────────────────────────
@@ -130,38 +130,6 @@ export async function fetchQuiz(dayId) {
     return data?.quizzes || null;
   } catch (e) {
     console.warn('[lessonService] fetchQuiz failed:', e.message);
-    return null;
-  }
-}
-
-// ─── saveQuizResult ───────────────────────────────────────────────────────────
-/**
- * Save quiz results and award XP.
- * xpEarned = Math.round((correct / total) * 100)
- * @param {object} params — { uid, dayId, score, totalQuestions, answers }
- */
-export async function saveQuizResult({ uid, dayId, score, totalQuestions, answers }) {
-  try {
-    const xpEarned = Math.round((score / totalQuestions) * 100);
-
-    const { error } = await supabase
-      .from('quiz_results')
-      .insert({
-        uid,
-        day_id:          dayId,
-        score,
-        total_questions: totalQuestions,
-        xp_earned:       xpEarned,
-        answers,
-        taken_at:        new Date().toISOString(),
-      });
-
-    if (error) throw error;
-
-    await awardXP(uid, xpEarned);
-    return { xpEarned };
-  } catch (e) {
-    console.warn('[lessonService] saveQuizResult failed:', e.message);
     return null;
   }
 }

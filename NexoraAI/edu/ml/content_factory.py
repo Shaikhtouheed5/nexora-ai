@@ -38,23 +38,22 @@ class ContentFactory:
     def translate_content(self, content: Dict, target_lang: str) -> Dict:
         """Translates a lesson or quiz object into the target language."""
         lang_name = LANG_NAMES.get(target_lang, target_lang)
-        client = get_groq_client()
-        
+
         prompt = f"""
         Translate the following cybersecurity content into {lang_name} (code: {target_lang}).
-        
+
         CRITICAL RULES:
         1. Translate ALL text values (titles, content, questions, options, explanations).
         2. KEEP the exact same JSON keys and structure.
         3. Do NOT translate keys (e.g., keep "question", "options", "slides").
         4. The output must be a valid JSON object.
-        
+
         Content to translate:
         {json.dumps(content)}
-        
+
         Output ONLY the translated JSON object.
         """
-        
+
         try:
             client = get_groq_client()
             if not client:
@@ -74,9 +73,7 @@ class ContentFactory:
     def generate_daily_lesson(self, day_number: int, title: str, category: str):
         """Generates a new lesson and localizes it for all 17 languages."""
         print(f"🚀 Generating Day {day_number} lesson: {title}...")
-        
-        # 1. Generate EN version
-        client = get_groq_client()
+
         prompt = f"""
         Generate educational content for a cybersecurity lesson titled "{title}" in category "{category}".
         The output must be a JSON object with:
@@ -99,20 +96,19 @@ class ContentFactory:
             )
             base_content = json.loads(completion.choices[0].message.content.strip())
             
-            # Save English version
             en_lesson = {
                 "day_number": day_number,
                 "title": title,
                 "category": category,
                 "slides": base_content.get("slides", []),
                 "quizzes": base_content.get("quizzes", []),
-                "quiz": {}, # Legacy field
+                # DB schema requires this column; kept empty because quizzes[] supersedes it
+                "quiz": {},
                 "language": "en"
             }
             self.sb.table("lessons").insert(en_lesson).execute()
             print(f"✅ Saved English version for Day {day_number}")
 
-            # 2. Localize for all other 16 languages
             other_langs = [l for l in LANG_NAMES.keys() if l != "en"]
             for lang in other_langs:
                 print(f"  Translating to {LANG_NAMES[lang]} ({lang})...")

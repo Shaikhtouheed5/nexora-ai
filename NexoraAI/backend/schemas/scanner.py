@@ -30,3 +30,7 @@ class ScanBatchRequest(BaseModel):
 
 class MarkSafeRequest(BaseModel):
     scan_id: str
+
+
+class ImageScanRequest(BaseModel):
+    image: str

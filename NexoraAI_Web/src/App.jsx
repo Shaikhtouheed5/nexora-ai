@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import supabase from './lib/supabase';
+import { supabase } from './lib/supabase';
 import { createOrFetchUser } from './lib/userService';
 
 // Pages

@@ -60,8 +60,8 @@ class GeminiClient:
         import json
         try:
             return json.loads(clean)
-        except Exception:
-            # Fallback if parsing fails
+        except Exception as exc:
+            logger.warning(f"Gemini JSON parse failed (classify_threat): {exc}")
             return {
                 "classification": "unknown",
                 "risk_score": 50,
@@ -81,7 +81,8 @@ class GeminiClient:
         import json
         try:
             return json.loads(clean)
-        except Exception:
+        except Exception as exc:
+            logger.warning(f"Gemini JSON parse failed (generate_quiz): {exc}")
             return {"question": raw, "options": [], "correct_index": 0, "explanation": ""}
 
     async def explain_lesson(self, lesson_title: str, lesson_body: str) -> str:

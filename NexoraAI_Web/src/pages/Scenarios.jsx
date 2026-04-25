@@ -66,7 +66,7 @@ export default function Scenarios({ user, profile, onLogout, refreshProfile }) {
     setAnswered(prev => ({ ...prev, [current]: { userSaidPhishing, correct } }));
 
     if (correct && user?.id) {
-      await awardXP(user.id, XP_RULES.SCENARIO_CORRECT).catch(() => {});
+      await awardXP(user.id, XP_RULES.SCENARIO_CORRECT).catch((e) => console.error('[Scenarios] awardXP failed:', e.message));
       refreshProfile?.();
       setScore(s => s + 1);
     }

@@ -16,7 +16,7 @@
  *   updated_at       TIMESTAMPTZ DEFAULT now()
  */
 
-import supabase from './supabase';
+import { supabase } from './supabase';
 
 /**
  * Upserts the authenticated user into the 'users' table.
@@ -50,35 +50,5 @@ export async function createOrFetchUser(supabaseUser) {
     .single();
 
   if (error) console.error('[userService] upsert error:', error);
-  return data;
-}
-
-/**
- * Fetches full user profile from users table by id.
- * @param {string} id — Supabase auth user id
- */
-export async function getUserProfile(id) {
-  const { data, error } = await supabase
-    .from('users')
-    .select('*')
-    .eq('id', id)
-    .single();
-  if (error) console.error('[userService] fetch error:', error);
-  return data;
-}
-
-/**
- * Updates specific fields in the user's profile.
- * @param {string} id
- * @param {object} updates
- */
-export async function updateUserProfile(id, updates) {
-  const { data, error } = await supabase
-    .from('users')
-    .update({ ...updates, updated_at: new Date().toISOString() })
-    .eq('id', id)
-    .select()
-    .single();
-  if (error) console.error('[userService] update error:', error);
   return data;
 }
